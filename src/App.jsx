@@ -60,25 +60,12 @@ export default function App() {
     <div className="app-shell">
       <div className="topbar">
         <div className="brand-cluster">
-          <span
-            className="logo-mark avatar-mark"
-            aria-label={`${me?.name || "User"} profile`}
-            style={{
-              backgroundImage: me?.photo ? `url(${me.photo})` : undefined,
-              backgroundColor: me?.avatarColor || "#5c9dff",
-              color: me?.photo ? "transparent" : "#0b1b3a"
-            }}
-          >
-            {!me?.photo && (me?.name?.[0]?.toUpperCase() || "?")}
-          </span>
-          <div className="small" style={{ fontWeight: 400 }}>
-            {me ? me.name : "Not logged in"}
-          </div>
+          <img src="/paxbud-logo.png" alt="FlatMate logo" className="logo-img" />
         </div>
         <div className="topbar-right">
           {me && (
-            <button className="btn secondary" onClick={actions.logout}>
-              Logout
+            <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
+              <span className="material-symbols-outlined">power_settings_new</span>
             </button>
           )}
         </div>

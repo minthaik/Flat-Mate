@@ -1,0 +1,1 @@
+Place static assets (e.g., logo.png) in this folder. Vite serves /public at the site root, so reference files as /logo.png.
