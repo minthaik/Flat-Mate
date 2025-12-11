@@ -601,7 +601,7 @@ select {
   --status-bg: var(--md-sys-color-surface-2);
   --status-fg: var(--md-sys-color-on-surface);
   --status-border: var(--md-sys-color-outline);
-  padding: 10px 12px;
+  padding: 25px 12px;
   border-radius: 14px;
   flex: 1 1 46%;
   justify-content: center;
