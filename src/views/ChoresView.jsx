@@ -11,7 +11,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
   const [selectedId, setSelectedId] = useState(null);
   const addRef = useRef(null);
   const detailRef = useRef(null);
-  const accentPalette = ["#1f8a5f", "#c28a00", "#3457d5", "#d84460", "#7a5ce0", "#2f6fdd", "#238aab"];
+  const accentPalette = ["#d97706", "#db2777", "#2563eb", "#059669", "#a855f7", "#f97316", "#14b8a6"];
 
   const sorted = useMemo(() => {
     const copy = [...(chores || [])];

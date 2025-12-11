@@ -1,4 +1,4 @@
-# FlatMate MVP
+# paxbud
 
 Live demo: https://flatmate-nine.vercel.app/
 
