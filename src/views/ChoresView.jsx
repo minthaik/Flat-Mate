@@ -11,7 +11,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
   const [selectedId, setSelectedId] = useState(null);
   const addRef = useRef(null);
   const detailRef = useRef(null);
-  const accentPalette = ["#9be5c9", "#f5c44f", "#7ea0ff", "#ff9aa2", "#c9b6ff", "#5c9dff", "#31c48d"];
+  const accentPalette = ["#1f8a5f", "#c28a00", "#3457d5", "#d84460", "#7a5ce0", "#2f6fdd", "#238aab"];
 
   const sorted = useMemo(() => {
     const copy = [...(chores || [])];
@@ -48,8 +48,9 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
           {house?.name && <span className="badge">{house.name}</span>}
         </div>
         <div className="row">
-          <button className="btn ghost" onClick={() => addRef.current?.open()}>
-            Add chore
+          <button className="btn secondary small" onClick={() => addRef.current?.open()}>
+            <span className="material-symbols-outlined" aria-hidden="true">add</span>
+            <span>Add Chore</span>
           </button>
         </div>
       </div>

@@ -71,12 +71,12 @@ export function loadInitial() {
         return {
           ...parsed,
           db: normalizeDb(parsed.db),
-          theme: "dark"
+          theme: parsed.theme || "light"
         };
       }
     } catch {}
   }
-  return { db: SEED_DB, currentUserId: null, view: "AUTH", toast: null, theme: "dark" };
+  return { db: SEED_DB, currentUserId: null, view: "AUTH", toast: null, theme: "light" };
 }
 
 function toast(state, msg) {

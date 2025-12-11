@@ -232,9 +232,12 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                   {upcomingGuests.map(g => {
                     const host = houseUsers.find(u => u.id === g.hostId);
                     return (
-                      <div key={g.id} className="kv">
-                        <span className="h3">{g.name}</span>
-                        <span className="small">{new Date(g.arrivesAt).toLocaleString()} - Host: {host?.name || "Unknown"}</span>
+                      <div key={g.id} className="kv" style={{ alignItems: "flex-start" }}>
+                        <div className="stack" style={{ gap: "4px" }}>
+                          <span className="h3">{g.name}</span>
+                          <span className="small">{new Date(g.arrivesAt).toLocaleString()}</span>
+                        </div>
+                        <span className="small">Host: {host?.name || "Unknown"}</span>
                       </div>
                     );
                   })}
@@ -345,7 +348,9 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
           <div className="modal">
             <div className="modal-header">
               <div className="h2">Schedule guest</div>
-              <button className="btn secondary" onClick={() => setGuestModalOpen(false)}>Close</button>
+              <button className="btn icon-only danger" onClick={() => setGuestModalOpen(false)} aria-label="Close">
+                <span className="material-symbols-outlined">cancel</span>
+              </button>
             </div>
             <div className="stack">
               <input
@@ -394,7 +399,9 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
           <div className="modal">
             <div className="modal-header">
               <div className="h2">Set DND until</div>
-              <button className="btn secondary" onClick={() => setDndModalOpen(false)}>Close</button>
+              <button className="btn icon-only danger" onClick={() => setDndModalOpen(false)} aria-label="Close">
+                <span className="material-symbols-outlined">cancel</span>
+              </button>
             </div>
             <div className="stack">
               <div className="stack">
@@ -441,7 +448,13 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
           <div className="modal">
             <div className="modal-header">
               <div className="h2">Set status</div>
-              <button className="btn secondary" onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}>Close</button>
+              <button
+                className="btn icon-only danger"
+                onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}
+                aria-label="Close"
+              >
+                <span className="material-symbols-outlined">cancel</span>
+              </button>
             </div>
             <div className="stack">
               <div className="small">What are you doing? (optional)</div>

@@ -17,7 +17,7 @@ export default function App() {
   }, [state]);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", state.theme || "dark");
+    document.documentElement.setAttribute("data-theme", state.theme || "light");
   }, [state.theme]);
 
   const me = getCurrentUser(state);
