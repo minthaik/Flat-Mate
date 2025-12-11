@@ -14,6 +14,9 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   const [dndDate, setDndDate] = useState("");
   const [dndTime, setDndTime] = useState("");
   const [dndModalOpen, setDndModalOpen] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusNote, setStatusNote] = useState("");
+  const [pendingStatus, setPendingStatus] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
@@ -54,16 +57,24 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     return list;
   }, [houseGuests]);
 
-  function saveStatus(status) {
+  useEffect(() => {
+    setStatusNote(me?.statusNote || "");
+  }, [me?.statusNote]);
+
+  function saveStatus(status, note = statusNote) {
     if (!me) return;
     if (status === "DND") {
       const datePart = dndDate || toDateInputValue(new Date().toISOString());
       const timePart = dndTime || "12:00";
       const untilIso = new Date(`${datePart}T${timePart}:00`).toISOString();
-      actions.setStatus(me.id, status, untilIso);
+      actions.setStatus(me.id, status, untilIso, note);
       setDndModalOpen(false);
+      setStatusModalOpen(false);
+      setPendingStatus(null);
     } else {
-      actions.setStatus(me.id, status);
+      actions.setStatus(me.id, status, null, note);
+      setStatusModalOpen(false);
+      setPendingStatus(null);
     }
   }
 
@@ -124,9 +135,12 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                         className={`btn status-btn ${meta.className || ""} ${myStatus === opt ? "active" : ""}`}
                         onClick={() => {
                           if (opt === "DND") {
+                            setStatusNote(me?.statusNote || "");
                             setDndModalOpen(true);
                           } else {
-                            saveStatus(opt);
+                            setPendingStatus(opt);
+                            setStatusNote(me?.statusNote || "");
+                            setStatusModalOpen(true);
                           }
                         }}
                       >
@@ -184,7 +198,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                             {u.status === "DND" ? "DND" : (u.status || "HOME")}
                           </span>
                         </div>
-                        <div className="small">{u.email}</div>
+                        <div className="small">{u.statusNote || "No status message set"}</div>
                         {u.status === "DND" && u.dndUntil && (
                           <div className="small emphasis">
                             Ends {new Date(u.dndUntil).toLocaleTimeString()} &rarr; <span className="countdown">{remainingDnd(u)}</span>
@@ -209,7 +223,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                   <div className="panel-title" style={{ margin: 0, paddingBottom: 0, borderBottom: "none" }}>Upcoming guests</div>
                   <button className="btn secondary small" onClick={() => setGuestModalOpen(true)}>
                     <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                    <span>Schedule guest</span>
+                    <span>Schedule Guest</span>
                   </button>
                 </div>
                 <div className="divider" style={{ marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }} />
@@ -403,11 +417,44 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                   />
                 </div>
               </div>
+              <div>
+                <div className="small">What are you doing? (optional)</div>
+                <input
+                  className="input"
+                  placeholder="Let roommates know your plan"
+                  value={statusNote}
+                  onChange={e => setStatusNote(e.target.value)}
+                />
+              </div>
               <div className="small">During DND, guests cannot be scheduled for you.</div>
             </div>
             <div className="modal-actions">
               <button className="btn secondary" onClick={() => setDndModalOpen(false)}>Cancel</button>
-              <button className="btn" onClick={() => saveStatus("DND")}>Save</button>
+              <button className="btn" onClick={() => saveStatus("DND", statusNote)}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusModalOpen && pendingStatus && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="modal-header">
+              <div className="h2">Set status</div>
+              <button className="btn secondary" onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}>Close</button>
+            </div>
+            <div className="stack">
+              <div className="small">What are you doing? (optional)</div>
+              <input
+                className="input"
+                placeholder="Let roommates know your plan"
+                value={statusNote}
+                onChange={e => setStatusNote(e.target.value)}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="btn secondary" onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}>Cancel</button>
+              <button className="btn" onClick={() => saveStatus(pendingStatus, statusNote)}>Save</button>
             </div>
           </div>
         </div>

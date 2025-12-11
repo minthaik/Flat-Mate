@@ -199,7 +199,7 @@ export function reducer(state, action) {
     }
 
     case "SET_STATUS": {
-      const { userId, status, until } = action;
+      const { userId, status, until, statusNote } = action;
       if (!userId || !status) return state;
       const upper = String(status).toUpperCase();
       const users = state.db.users.map(u => {
@@ -209,7 +209,8 @@ export function reducer(state, action) {
         return {
           ...u,
           status: nextStatus,
-          dndUntil: nextStatus === "DND" ? normalizedUntil : null
+          dndUntil: nextStatus === "DND" ? normalizedUntil : null,
+          statusNote: statusNote !== undefined ? statusNote : (u.statusNote || "")
         };
       });
       return toast({ ...state, db: { ...state.db, users } }, "Status updated.");
