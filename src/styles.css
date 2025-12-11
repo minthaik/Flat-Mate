@@ -133,6 +133,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+@media (max-width: 540px) {
+  body {
+    font-size: 18px;
+  }
+  .small {
+    font-size: 15px;
+  }
+}
+
 p {
   font-weight: 300;
 }
@@ -452,7 +461,7 @@ select {
    ========================= */
 
 .pill {
-  font-size: 10px;
+  font-size: 13px;
   padding: 6px 10px;
   border-radius: var(--pill-radius);
   border: 1px solid var(--md-sys-color-outline);
