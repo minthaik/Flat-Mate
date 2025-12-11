@@ -205,16 +205,21 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
           <div className="panel">
             <div className="stack">
               <div className="card">
-                <button className="btn secondary" onClick={() => setGuestModalOpen(true)}>Schedule guest</button>
-                <div className="divider" />
-                <div className="panel-title">Upcoming guests</div>
-                <div className="list">
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="panel-title" style={{ margin: 0, paddingBottom: 0, borderBottom: "none" }}>Upcoming guests</div>
+                  <button className="btn secondary small" onClick={() => setGuestModalOpen(true)}>
+                    <span className="material-symbols-outlined" aria-hidden="true">add</span>
+                    <span>Schedule guest</span>
+                  </button>
+                </div>
+                <div className="divider" style={{ marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }} />
+                <div className="list" style={{ marginTop: "var(--space-5)" }}>
                   {upcomingGuests.length === 0 && <div className="small">No guests scheduled.</div>}
                   {upcomingGuests.map(g => {
                     const host = houseUsers.find(u => u.id === g.hostId);
                     return (
                       <div key={g.id} className="kv">
-                        <span>{g.name}</span>
+                        <span className="h3">{g.name}</span>
                         <span className="small">{new Date(g.arrivesAt).toLocaleString()} - Host: {host?.name || "Unknown"}</span>
                       </div>
                     );
