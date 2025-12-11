@@ -215,7 +215,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                     return (
                       <div key={g.id} className="kv">
                         <span>{g.name}</span>
-                        <span className="small">{new Date(g.arrivesAt).toLocaleString()} Â· Host: {host?.name || "Unknown"}</span>
+                        <span className="small">{new Date(g.arrivesAt).toLocaleString()} - Host: {host?.name || "Unknown"}</span>
                       </div>
                     );
                   })}
