@@ -60,16 +60,22 @@ export default function App() {
     <div className="app-shell">
       <div className="topbar">
         <div className="brand-cluster">
-          <span className="logo-mark" aria-label="FlatMate logo">FM</span>
-          <span className="badge">
-            <span className="material-symbols-outlined badge-icon" aria-hidden="true">workspace_premium</span>
-            <span>MVP</span>
+          <span
+            className="logo-mark avatar-mark"
+            aria-label={`${me?.name || "User"} profile`}
+            style={{
+              backgroundImage: me?.photo ? `url(${me.photo})` : undefined,
+              backgroundColor: me?.avatarColor || "#5c9dff",
+              color: me?.photo ? "transparent" : "#0b1b3a"
+            }}
+          >
+            {!me?.photo && (me?.name?.[0]?.toUpperCase() || "?")}
           </span>
+          <div className="small" style={{ fontWeight: 400 }}>
+            {me ? me.name : "Not logged in"}
+          </div>
         </div>
         <div className="topbar-right">
-          <div className="small">
-            {me ? `Logged in as ${me.name}` : "Not logged in"}
-          </div>
           {me && (
             <button className="btn secondary" onClick={actions.logout}>
               Logout

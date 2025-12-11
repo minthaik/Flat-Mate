@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import ChoresView from "../views/ChoresView";
 import { uid, fromDateInputValue, toDateInputValue } from "../store/utils";
 import ProfileScreen from "./ProfileScreen";
@@ -163,33 +163,38 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             <div className="panel-title">Members Status</div>
             {house ? (
               <div className="stack">
-                {houseUsers.map(u => (
-                  <div key={u.id} className="card">
-                    <div className="kv">
-                      <span className="h2" style={{ margin: 0 }}>{u.name}</span>
-                      <span
-                        className={`pill ${
-                          u.status === "DND"
-                            ? "dnd"
-                            : u.status === "AWAY"
-                            ? "away"
-                            : u.status === "OUT"
-                            ? "out"
-                            : "home"
-                        }`}
-                      >
-                        {u.status === "DND" ? "DND" : (u.status || "HOME")}
-                      </span>
-                    </div>
-                    <div className="small">{u.email}</div>
-                    {u.status === "DND" && u.dndUntil && (
-                      <div className="small emphasis">
-                        Ends {new Date(u.dndUntil).toLocaleTimeString()} •{" "}
-                        <span className="countdown">{remainingDnd(u)}</span>
+                {houseUsers.map((u, idx) => {
+                  const isLast = idx === houseUsers.length - 1;
+                  return (
+                    <React.Fragment key={u.id}>
+                      <div className="card">
+                        <div className="kv">
+                          <span className="h2" style={{ margin: 0 }}>{u.name}</span>
+                          <span
+                            className={`pill ${
+                              u.status === "DND"
+                                ? "dnd"
+                                : u.status === "AWAY"
+                                ? "away"
+                                : u.status === "OUT"
+                                ? "out"
+                                : "home"
+                            }`}
+                          >
+                            {u.status === "DND" ? "DND" : (u.status || "HOME")}
+                          </span>
+                        </div>
+                        <div className="small">{u.email}</div>
+                        {u.status === "DND" && u.dndUntil && (
+                          <div className="small emphasis">
+                            Ends {new Date(u.dndUntil).toLocaleTimeString()} &rarr; <span className="countdown">{remainingDnd(u)}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {!isLast && <div className="divider" />}
+                    </React.Fragment>
+                  );
+                })}
               </div>
             ) : (
               <div className="small">No members found.</div>
@@ -210,7 +215,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                     return (
                       <div key={g.id} className="kv">
                         <span>{g.name}</span>
-                        <span className="small">{new Date(g.arrivesAt).toLocaleString()} · Host: {host?.name || "Unknown"}</span>
+                        <span className="small">{new Date(g.arrivesAt).toLocaleString()} Â· Host: {host?.name || "Unknown"}</span>
                       </div>
                     );
                   })}
@@ -241,15 +246,13 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
       )}
 
       {tab === "CHORES" && (
-        <div className="panel">
-          <ChoresView
-            me={me}
-            house={house}
-            houseUsers={houseUsers}
-            chores={houseChores}
-            actions={actions}
-          />
-        </div>
+        <ChoresView
+          me={me}
+          house={house}
+          houseUsers={houseUsers}
+          chores={houseChores}
+          actions={actions}
+        />
       )}
 
       {tab === "PROFILE" && (
@@ -295,7 +298,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
         <button className={`nav-btn ${tab === "CHORES" ? "active" : ""}`} onClick={() => setTab("CHORES")}>
           <span className="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24">
-              <path d="M16 11h-1V7a3 3 0 0 0-6 0v4H8l-2 9h12l-2-9Zm-5-4a1 1 0 1 1 2 0v4h-2V7Zm-1.82 11 1-5h3.64l1 5H9.18Z" />
+              <path d="M3 7h2v2H3V7Zm0 4h2v2H3v-2Zm0 4h2v2H3v-2ZM7 7h14v2H7V7Zm0 4h14v2H7v-2Zm0 4h14v2H7v-2Z" />
             </svg>
           </span>
           <span className="nav-label">Chores</span>
@@ -407,3 +410,4 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     </>
   );
 }
+
