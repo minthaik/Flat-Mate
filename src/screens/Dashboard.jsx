@@ -111,8 +111,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     <>
       {tab === "HOME" && (
         <>
+          <div className="section-title">My status</div>
           <div className="panel">
-            <div className="panel-title">My status</div>
             <div className="stack">
               <div className="card">
                 <div className="status-row">
@@ -159,8 +159,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             </div>
           </div>
 
+          <div className="section-title">Members Status</div>
           <div className="panel">
-            <div className="panel-title">Members Status</div>
             {house ? (
               <div className="stack">
                 {houseUsers.map((u, idx) => {
@@ -201,8 +201,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             )}
           </div>
 
+          <div className="section-title">Guest status</div>
           <div className="panel">
-            <div className="panel-title">Guest status</div>
             <div className="stack">
               <div className="card">
                 <button className="btn secondary" onClick={() => setGuestModalOpen(true)}>Schedule guest</button>
@@ -224,8 +224,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             </div>
           </div>
 
+          <div className="section-title">Chore overview</div>
           <div className="panel">
-            <div className="panel-title">Chore overview</div>
             <div className="stack">
               {choreOverview.length === 0 && <div className="small">No chores yet.</div>}
               {choreOverview.map(chore => {
@@ -410,4 +410,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     </>
   );
 }
+
+
+
+
 
