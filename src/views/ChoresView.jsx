@@ -11,6 +11,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
   const [selectedId, setSelectedId] = useState(null);
   const addRef = useRef(null);
   const detailRef = useRef(null);
+  const accentPalette = ["#9be5c9", "#f5c44f", "#7ea0ff", "#ff9aa2", "#c9b6ff", "#5c9dff", "#31c48d"];
 
   const sorted = useMemo(() => {
     const copy = [...(chores || [])];
@@ -27,6 +28,15 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
     const ids = new Set(priority.map(c => c.id));
     return sorted.filter(c => !ids.has(c.id));
   }, [sorted, priority]);
+
+  const accentFor = (id) => {
+    if (!id) return accentPalette[0];
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash + id.charCodeAt(i) * 17) % 9973;
+    }
+    return accentPalette[hash % accentPalette.length];
+  };
 
   const selected = sorted.find(c => c.id === selectedId) || null;
 
@@ -51,8 +61,8 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
       )}
 
       <div className="stack">
+        <div className="section-title">Assignments</div>
         <div className="panel">
-          <div className="panel-title">Assignments</div>
           {priority.length > 0 && (
             <>
               <div className="small" style={{ marginBottom: 6 }}>Priority</div>
@@ -70,7 +80,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
                       }}
                     >
                       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                        <div className="h2" style={{ margin: 0 }}>{chore.title}</div>
+                        <div className="h2" style={{ margin: 0, color: accentFor(chore.id) }}>{chore.title}</div>
                         <span className={`pill ${chore.state === "ENDED" ? "end" : isOverdue(chore) ? "end" : "ok"}`}>
                           {chore.state === "ENDED" ? "ENDED" : isOverdue(chore) ? "OVERDUE" : "ACTIVE"}
                         </span>
@@ -106,7 +116,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
                   }}
                 >
                   <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="h2" style={{ margin: 0 }}>{chore.title}</div>
+                    <div className="h2" style={{ margin: 0, color: accentFor(chore.id) }}>{chore.title}</div>
                     <span className={`pill ${chore.state === "ENDED" ? "end" : isOverdue(chore) ? "end" : "ok"}`}>
                       {chore.state === "ENDED" ? "ENDED" : isOverdue(chore) ? "OVERDUE" : "ACTIVE"}
                     </span>
@@ -125,11 +135,11 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
           </div>
         </div>
 
+        <div className="section-title">Plan</div>
         <div className="panel">
-          <div className="panel-title">Plan</div>
           {selected ? (
             <div className="card">
-              <div className="h2">{selected.title}</div>
+              <div className="h2" style={{ color: accentFor(selected.id) }}>{selected.title}</div>
               <div className="small">{selected.notes || "No notes."}</div>
               <div className="divider" />
               <div className="kv"><span>Cadence</span><span>{selected.cadenceDays} days</span></div>
