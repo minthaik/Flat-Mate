@@ -78,30 +78,30 @@
 
 :root[data-theme="light"] {
   /* Light scheme */
-  --md-sys-color-primary: #008000;
+  --md-sys-color-primary: #0b8a3b;
   --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-primary-container: #cce8cc;
-  --md-sys-color-on-primary-container: #0f2f0f;
+  --md-sys-color-primary-container: #e0f3e7;
+  --md-sys-color-on-primary-container: #0b3a20;
 
-  --md-sys-color-secondary: #2f6b8f;
+  --md-sys-color-secondary: #1f5da8;
   --md-sys-color-on-secondary: #ffffff;
-  --md-sys-color-secondary-container: #d8e9f5;
-  --md-sys-color-on-secondary-container: #0c2332;
+  --md-sys-color-secondary-container: #e3ecfb;
+  --md-sys-color-on-secondary-container: #0c2555;
 
-  --md-sys-color-tertiary: #c9791f;
+  --md-sys-color-tertiary: #c7541f;
   --md-sys-color-on-tertiary: #ffffff;
 
-  --md-sys-color-surface: #f7f8ff;
+  --md-sys-color-surface: #f8f9fd;
   --md-sys-color-surface-1: #ffffff;
-  --md-sys-color-surface-2: #f1f3ff;
-  --md-sys-color-surface-variant: #eef0fb;
-  --md-sys-color-on-surface: #15171c;
-  --md-text-secondary: #4b5568;
+  --md-sys-color-surface-2: #f0f3fc;
+  --md-sys-color-surface-variant: #e6eaf5;
+  --md-sys-color-on-surface: #0f172a;
+  --md-text-secondary: #4a5568;
 
-  --md-sys-color-outline: rgba(9, 20, 60, 0.08);
-  --md-sys-color-outline-variant: rgba(9, 20, 60, 0.12);
+  --md-sys-color-outline: rgba(12, 26, 75, 0.12);
+  --md-sys-color-outline-variant: rgba(12, 26, 75, 0.18);
 
-  --md-sys-color-danger: #ba1a1a;
+  --md-sys-color-danger: #c62828;
   --md-sys-color-on-danger: #ffffff;
 
   --md-field-bg: #ffffff;
@@ -156,7 +156,7 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-4) calc(92px + env(safe-area-inset-bottom));
+  padding: calc(var(--space-6) + env(safe-area-inset-top) + 96px) var(--space-4) calc(92px + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 900px) {
@@ -164,7 +164,7 @@ a { color: inherit; text-decoration: none; }
     background: linear-gradient(180deg, var(--md-sys-color-surface) 0%, var(--md-sys-color-surface-2) 100%);
   }
   .app-shell {
-    padding-top: var(--space-8);
+    padding-top: calc(var(--space-8) + 96px);
   }
 }
 
@@ -183,6 +183,19 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--md-sys-color-outline);
   border-radius: var(--radius-xl);
   box-shadow: var(--md-sys-elevation-1);
+}
+.header-nav {
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 80;
+}
+.header-nav .topbar {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  width: 100%;
 }
 
 .brand-cluster {
@@ -884,8 +897,3 @@ select {
 }
 
 /* Sticky main topbar only (avoid sticky inside panels) */
-.app-shell > .topbar {
-  position: sticky;
-  top: calc(env(safe-area-inset-top) + 8px);
-  z-index: 50;
-}
