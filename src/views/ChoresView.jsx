@@ -7,6 +7,21 @@ function isOverdue(chore) {
   return new Date(chore.dueAt).getTime() < Date.now();
 }
 
+function dueMeta(chore) {
+  if (!chore?.dueAt) return { label: "No due date", tone: "ok" };
+  const now = Date.now();
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const endOfTomorrow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const ts = new Date(chore.dueAt).getTime();
+  if (Number.isNaN(ts)) return { label: "No due date", tone: "ok" };
+  if (chore.state === "ENDED") return { label: "Ended", tone: "end" };
+  if (ts < now) return { label: "Overdue", tone: "end" };
+  if (ts <= endOfToday.getTime()) return { label: "Due today", tone: "end" };
+  if (ts <= endOfTomorrow.getTime()) return { label: "Due tomorrow", tone: "ok" };
+  return { label: new Date(chore.dueAt).toLocaleDateString(), tone: "ok" };
+}
+
 export default function ChoresView({ me, house, houseUsers, chores, actions }) {
   const [selectedId, setSelectedId] = useState(null);
   const addRef = useRef(null);
@@ -18,6 +33,9 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
     copy.sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
     return copy;
   }, [chores]);
+
+  const myChores = useMemo(() => sorted.filter(c => c.assigneeId === me?.id), [sorted, me?.id]);
+  const othersChores = useMemo(() => sorted.filter(c => c.assigneeId !== me?.id), [sorted, me?.id]);
 
   const priority = useMemo(() => {
     const targets = ["trash", "rest room cleaning", "restroom cleaning", "bathroom cleaning"];
@@ -62,7 +80,55 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
       )}
 
       <div className="stack">
-        <div className="section-title">Assignments</div>
+        <div className="section-title">My chores</div>
+        <div className="panel">
+          <div className="list">
+            {myChores.length === 0 && <div className="small">Nothing assigned to you yet.</div>}
+            {myChores.map(chore => {
+              const assignee = houseUsers.find(u => u.id === chore.assigneeId);
+              const due = dueMeta(chore);
+              return (
+                <div
+                  key={chore.id}
+                  className={`card ${selectedId === chore.id ? "selected" : ""}`}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    setSelectedId(chore.id);
+                    detailRef.current?.open(chore.id);
+                  }}
+                >
+                  <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <div className="h2" style={{ margin: 0, color: accentFor(chore.id) }}>{chore.title}</div>
+                    <span className={`pill ${due.tone === "end" ? "end" : "ok"}`}>{due.label}</span>
+                  </div>
+                  <div className="kv" style={{ marginTop: 6 }}>
+                    <span>Assignee</span>
+                    <span>{assignee?.name || "Unassigned"}</span>
+                  </div>
+                  <div className="kv">
+                    <span>State</span>
+                    <span className="pill ok">{chore.state === "ENDED" ? "Ended" : "Active"}</span>
+                  </div>
+                  <div className="row" style={{ justifyContent: "flex-end", marginTop: "var(--space-3)" }}>
+                    <button
+                      className="btn small"
+                      disabled={chore.state === "ENDED"}
+                      onClick={e => {
+                        e.stopPropagation();
+                        actions.completeChore(chore.id, me?.id);
+                      }}
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">check</span>
+                      <span>Mark done</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="section-title">All chores</div>
         <div className="panel">
           {priority.length > 0 && (
             <>
@@ -70,6 +136,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
               <div className="list" style={{ marginBottom: 12 }}>
                 {priority.map(chore => {
                   const assignee = houseUsers.find(u => u.id === chore.assigneeId);
+                  const due = dueMeta(chore);
                   return (
                     <div
                       key={chore.id}
@@ -82,17 +149,15 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
                     >
                       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                         <div className="h2" style={{ margin: 0, color: accentFor(chore.id) }}>{chore.title}</div>
-                        <span className={`pill ${chore.state === "ENDED" ? "end" : isOverdue(chore) ? "end" : "ok"}`}>
-                          {chore.state === "ENDED" ? "ENDED" : isOverdue(chore) ? "OVERDUE" : "ACTIVE"}
-                        </span>
+                        <span className={`pill ${due.tone === "end" ? "end" : "ok"}`}>{due.label}</span>
                       </div>
                       <div className="kv" style={{ marginTop: 6 }}>
                         <span>Assignee</span>
                         <span>{assignee?.name || "Unassigned"}</span>
                       </div>
                       <div className="kv">
-                        <span>Due</span>
-                        <span>{chore.dueAt ? new Date(chore.dueAt).toLocaleDateString() : "-"}</span>
+                        <span>State</span>
+                        <span className="pill ok">{chore.state === "ENDED" ? "Ended" : "Active"}</span>
                       </div>
                     </div>
                   );
@@ -106,6 +171,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
             )}
             {others.map(chore => {
               const assignee = houseUsers.find(u => u.id === chore.assigneeId);
+              const due = dueMeta(chore);
               return (
                 <div
                   key={chore.id}
@@ -118,17 +184,15 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
                 >
                   <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                     <div className="h2" style={{ margin: 0, color: accentFor(chore.id) }}>{chore.title}</div>
-                    <span className={`pill ${chore.state === "ENDED" ? "end" : isOverdue(chore) ? "end" : "ok"}`}>
-                      {chore.state === "ENDED" ? "ENDED" : isOverdue(chore) ? "OVERDUE" : "ACTIVE"}
-                    </span>
+                    <span className={`pill ${due.tone === "end" ? "end" : "ok"}`}>{due.label}</span>
                   </div>
                   <div className="kv" style={{ marginTop: 6 }}>
                     <span>Assignee</span>
                     <span>{assignee?.name || "Unassigned"}</span>
                   </div>
                   <div className="kv">
-                    <span>Due</span>
-                    <span>{chore.dueAt ? new Date(chore.dueAt).toLocaleDateString() : "-"}</span>
+                    <span>State</span>
+                    <span className="pill ok">{chore.state === "ENDED" ? "Ended" : "Active"}</span>
                   </div>
                 </div>
               );

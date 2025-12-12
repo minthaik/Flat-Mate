@@ -75,7 +75,7 @@ export function loadInitial() {
         return {
           ...parsed,
           db: normalizeDb(parsed.db),
-          theme: parsed.theme || "light"
+          theme: "light" // force light as default
         };
       }
     } catch {}
@@ -272,7 +272,7 @@ export function reducer(state, action) {
     }
 
     case "SET_THEME": {
-      return { ...state, theme: "dark" };
+      return { ...state, theme: action.theme || "light" };
     }
 
     case "UPDATE_PROFILE": {

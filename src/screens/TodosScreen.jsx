@@ -10,7 +10,6 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [listFilter, setListFilter] = useState("all");
-  const [taskFilter, setTaskFilter] = useState("all");
   const [pendingSelectNew, setPendingSelectNew] = useState(false);
 
   const tasksRef = useRef(null);
@@ -27,18 +26,12 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
     return visibleLists;
   }, [visibleLists, listFilter]);
 
-  const selectedList = visibleLists.find(l => l.id === selectedListId) || visibleLists[0] || null;
+  const selectedList = filteredLists.find(l => l.id === selectedListId) || filteredLists[0] || null;
   const allTasksDone = selectedList ? (selectedList.tasks || []).every(t => t.isDone) : false;
   const selectedProgress = selectedList
     ? Math.round(((selectedList.tasks || []).filter(t => t.isDone).length / Math.max((selectedList.tasks || []).length || 1, 1)) * 100)
     : 0;
-  const filteredTasks = useMemo(() => {
-    if (!selectedList) return [];
-    const tasks = selectedList.tasks || [];
-    if (taskFilter === "active") return tasks.filter(t => !t.isDone);
-    if (taskFilter === "done") return tasks.filter(t => t.isDone);
-    return tasks;
-  }, [selectedList, taskFilter]);
+  const filteredTasks = selectedList ? selectedList.tasks || [] : [];
 
   function createList() {
     const items = newListItems.map(i => (i.text || "").trim()).filter(Boolean);
@@ -83,6 +76,13 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
     }
     prevListCount.current = count;
   }, [visibleLists, pendingSelectNew]);
+
+  // Keep selected list in sync with filter
+  useEffect(() => {
+    if (!filteredLists.some(l => l.id === selectedListId)) {
+      setSelectedListId(filteredLists[0]?.id || null);
+    }
+  }, [filteredLists, selectedListId]);
 
   useEffect(() => {
     if (tasksRef.current) {
@@ -245,14 +245,14 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
                     >
                       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                         <span className="h2" style={{ margin: 0 }}>{list.title}</span>
-                        <span className="pill {list.visibility === \"shared\" ? \"shared\" : \"personal\"}">
+                        <span className={`pill ${list.visibility === "shared" ? "shared" : "personal"}`}>
                           {list.visibility === "shared" ? "Shared" : "Personal"}
                         </span>
                       </div>
                       <div className="small">
                         {list.visibility === "shared"
-                          ? `Owner: ${owner?.name || "Unknown"} · ${list.memberIds?.length || 1} member(s)`
-                          : `${owner?.name || "Me"} · ${list.memberIds?.length || 1} member(s)`}
+                          ? `Owner: ${owner?.name || "Unknown"} - ${list.memberIds?.length || 1} member(s)`
+                          : `${owner?.name || "Me"} - ${list.memberIds?.length || 1} member(s)`}
                       </div>
                       <div className="progress">
                         <div className="progress-bar" style={{ width: `${pct}%` }} />
@@ -287,17 +287,6 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
                       <div className="progress-bar" style={{ width: `${selectedProgress}%` }} />
                     </div>
                     <span className="small">{selectedProgress}% complete</span>
-                  </div>
-                  <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
-                    {["all", "active", "done"].map(f => (
-                      <button
-                        key={f}
-                        className={`btn ghost small ${taskFilter === f ? "selected" : ""}`}
-                        onClick={() => setTaskFilter(f)}
-                      >
-                        {f === "all" ? "All" : f === "active" ? "Active" : "Done"}
-                      </button>
-                    ))}
                   </div>
                   <div className="list">
                     {filteredTasks.length === 0 && <div className="small">No tasks.</div>}
