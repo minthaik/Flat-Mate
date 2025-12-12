@@ -123,6 +123,18 @@ export default function App() {
         )}
       </div>
 
+      {canInstall && (
+        <div className="install-banner">
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <div className="small">Install this app for quicker access.</div>
+            <button className="btn secondary small" onClick={triggerInstall}>
+              <span className="material-symbols-outlined" aria-hidden="true">download</span>
+              <span>Install</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <Toast message={state.toast} onClose={actions.dismissToast} />
     </div>
   );
