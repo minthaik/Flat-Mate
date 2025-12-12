@@ -1,21 +1,34 @@
 import React, { useEffect, useState } from "react";
 
-const COLORS = ["#7ea0ff", "#31c48d", "#f5c44f", "#ff7b7b", "#5c9dff"];
+const PRESETS = [
+  { id: "happy", label: "Happy", src: "/avatars/avatar-happy.svg", accent: "#7ea0ff" },
+  { id: "cool", label: "Cool", src: "/avatars/avatar-cool.svg", accent: "#31c48d" },
+  { id: "cat", label: "Cat", src: "/avatars/avatar-cat.svg", accent: "#f5c44f" },
+  { id: "dog", label: "Dog", src: "/avatars/avatar-dog.svg", accent: "#ff7b7b" },
+  { id: "astro", label: "Astro", src: "/avatars/avatar-astro.svg", accent: "#5c9dff" },
+  { id: "leaf", label: "Leaf", src: "/avatars/avatar-leaf.svg", accent: "#60b37a" }
+];
+
+const DEFAULT_PRESET_ID = PRESETS[0].id;
 
 export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
-  const [avatarColor, setAvatarColor] = useState(COLORS[0]);
+  const [avatarColor, setAvatarColor] = useState(PRESETS.find(p => p.id === DEFAULT_PRESET_ID)?.accent || "#7ea0ff");
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [transferTo, setTransferTo] = useState("");
   const [houseName, setHouseName] = useState("");
+  const [avatarPreset, setAvatarPreset] = useState(DEFAULT_PRESET_ID);
 
   useEffect(() => {
     if (!me) return;
     setName(me.name || "");
     setTagline(me.tagline || "");
-    setAvatarColor(me.avatarColor || COLORS[0]);
+    const presetId = me.avatarPreset || DEFAULT_PRESET_ID;
+    setAvatarPreset(presetId);
+    const presetAccent = PRESETS.find(p => p.id === presetId)?.accent;
+    setAvatarColor(me.avatarColor || presetAccent || PRESETS[0].accent);
     setNotifyPush(me.notifications?.push ?? true);
     setNotifyEmail(me.notifications?.email ?? false);
     const firstOther = houseUsers.find(u => u.id !== me.id);
@@ -32,6 +45,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
       name: name.trim() || me.name,
       tagline: tagline.trim(),
       avatarColor,
+      avatarPreset,
       notifications: { push: notifyPush, email: notifyEmail }
     });
   }
@@ -62,30 +76,34 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
       <div className="panel">
         <div className="panel-title">Profile</div>
         <div className="stack">
-          <div className="row" style={{ alignItems: "center", gap: 12 }}>
-            <div
-              className="logo-mark"
-              aria-hidden="true"
-              style={{
-                background: avatarColor,
-                width: 100,
-                height: 100,
-                color: "#0b1b3a",
-                border: "1px solid rgba(255,255,255,0.25)",
-                overflow: "hidden",
+        <div className="row" style={{ alignItems: "center", gap: 12 }}>
+          <div
+            className="logo-mark"
+            aria-hidden="true"
+            style={{
+            background: "#f0f3fc",
+            width: 100,
+            height: 100,
+            color: "#0b1b3a",
+            border: "1px solid rgba(255,255,255,0.25)",
+            overflow: "hidden",
                 padding: 0,
                 display: "grid",
-                placeItems: "center",
-                fontSize: 32,
-                fontWeight: 700
-              }}
-            >
-              {me.name?.[0]?.toUpperCase() || "?"}
-            </div>
-            <div className="stack">
-              <div className="h2" style={{ margin: 0 }}>{me.name}</div>
-              <div className="small">{me.email}</div>
-              <div className="small">{house ? `House: ${house.name}` : "No house joined"}</div>
+            placeItems: "center",
+            fontSize: avatarPreset ? 40 : 32,
+            fontWeight: 700
+          }}
+          >
+          {avatarPreset ? (
+            <img src={PRESETS.find(p => p.id === avatarPreset)?.src} alt={avatarPreset} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            me.name?.[0]?.toUpperCase() || "?"
+          )}
+          </div>
+          <div className="stack">
+            <div className="h2" style={{ margin: 0 }}>{me.name}</div>
+            <div className="small">{me.email}</div>
+            <div className="small">{house ? `House: ${house.name}` : "No house joined"}</div>
             </div>
           </div>
 
@@ -99,26 +117,26 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
             <input className="input" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Add a short status" />
           </div>
 
-          <div>
-            <div className="small" style={{ marginBottom: 6 }}>Avatar color</div>
-            <div className="row">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  className={`btn ghost ${avatarColor === c ? "selected" : ""}`}
-                  onClick={() => setAvatarColor(c)}
-                  style={{
-                    width: 42,
-                    height: 42,
-                    padding: 0,
-                    borderRadius: "50%",
-                    borderColor: avatarColor === c ? "var(--md-field-border-strong)" : "var(--md-sys-color-outline)",
-                    background: c,
-                    boxShadow: avatarColor === c ? "0 0 0 2px var(--md-state-focus)" : "none"
-                  }}
-                  aria-label={`Choose color ${c}`}
-                />
-              ))}
+          <div className="card">
+            <div className="panel-title">Avatar</div>
+            <div className="stack">
+              <div className="small">Choose a character</div>
+              <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
+                {PRESETS.map(p => (
+                  <button
+                    key={p.id}
+                    className={`btn ghost small ${avatarPreset === p.id ? "selected" : ""}`}
+                    onClick={() => {
+                      setAvatarPreset(p.id);
+                      setAvatarColor(p.accent);
+                    }}
+                    style={{ padding: "6px 10px" }}
+                  >
+                    <img src={p.src} alt={p.label} style={{ width: 32, height: 32, borderRadius: "50%" }} />
+                    <span>{p.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

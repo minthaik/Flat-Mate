@@ -43,6 +43,7 @@ function normalizeDb(db) {
       dndUntil: nextStatus === "DND" ? dndUntil : null,
       tagline: u.tagline || "",
       avatarColor: u.avatarColor || "#7ea0ff",
+      avatarPreset: u.avatarPreset || null,
       timezone: DEVICE_TIMEZONE,
       notifications,
       photo: u.photo || null

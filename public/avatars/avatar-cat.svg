@@ -1,0 +1,9 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cat avatar">
+  <rect width="256" height="256" rx="64" fill="#fde68a"/>
+  <path d="M84 92l-20-30 40 18z" fill="#fcd34d"/>
+  <path d="M172 92l20-30-40 18z" fill="#fcd34d"/>
+  <circle cx="104" cy="122" r="10" fill="#0f172a"/>
+  <circle cx="152" cy="122" r="10" fill="#0f172a"/>
+  <path d="M128 134c-8 0-14 6-14 12s6 12 14 12 14-6 14-12-6-12-14-12z" fill="#f97316" stroke="#0f172a" stroke-width="4"/>
+  <path d="M96 170c20 10 44 10 64 0" fill="none" stroke="#0f172a" stroke-width="10" stroke-linecap="round"/>
+</svg>

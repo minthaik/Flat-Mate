@@ -1,0 +1,5 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Leaf avatar">
+  <rect width="256" height="256" rx="64" fill="#d1fae5"/>
+  <path d="M128 56c36 22 56 46 56 78 0 30-22 56-56 56s-56-26-56-56c0-32 20-56 56-78z" fill="#22c55e" stroke="#15803d" stroke-width="6" />
+  <path d="M128 80v86" stroke="#065f46" stroke-width="8" stroke-linecap="round"/>
+</svg>

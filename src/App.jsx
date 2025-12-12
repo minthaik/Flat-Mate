@@ -83,22 +83,24 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <div className="topbar">
-        <div className="brand-cluster">
-          <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
-        </div>
-        <div className="topbar-right">
-          {canInstall && (
-            <button className="btn secondary small" onClick={triggerInstall}>
-              <span className="material-symbols-outlined" aria-hidden="true">download</span>
-              <span>Install</span>
-            </button>
-          )}
-          {me && (
-            <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
-              <span className="material-symbols-outlined">power_settings_new</span>
-            </button>
-          )}
+      <div className="header-nav">
+        <div className="topbar">
+          <div className="brand-cluster">
+            <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
+          </div>
+          <div className="topbar-right">
+            {canInstall && (
+              <button className="btn secondary small" onClick={triggerInstall}>
+                <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                <span>Install</span>
+              </button>
+            )}
+            {me && (
+              <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
+                <span className="material-symbols-outlined">power_settings_new</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
