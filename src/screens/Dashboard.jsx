@@ -4,7 +4,7 @@ import { uid, fromDateInputValue, toDateInputValue } from "../store/utils";
 import ProfileScreen from "./ProfileScreen";
 import TodosScreen from "./TodosScreen";
 
-export default function Dashboard({ me, house, houseUsers, houseChores, houseGuests, todoLists, actions }) {
+export default function Dashboard({ me, house, houseUsers, houseChores, houseGuests, houseNotes = [], todoLists, actions }) {
   const [tab, setTab] = useState("HOME");
   const [guestName, setGuestName] = useState("");
   const [guestDate, setGuestDate] = useState("");
@@ -17,6 +17,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusNote, setStatusNote] = useState("");
   const [pendingStatus, setPendingStatus] = useState(null);
+  const [noteText, setNoteText] = useState("");
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
@@ -100,12 +101,32 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   }
 
   const canAddGuest = guestName.trim().length > 0;
+  const canAddNote = noteText.trim().length > 0 && !!me?.houseId;
+
+  function addNote() {
+    if (!canAddNote) return;
+    const note = {
+      id: uid("note"),
+      houseId: me.houseId,
+      text: noteText.trim(),
+      authorId: me.id,
+      createdAt: new Date().toISOString()
+    };
+    actions.addNote(note);
+    setNoteText("");
+  }
 
   const choreOverview = useMemo(() => {
     const copy = [...(houseChores || [])];
     copy.sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
     return copy.slice(0, 3);
   }, [houseChores]);
+
+  const boardNotes = useMemo(() => {
+    const copy = [...(houseNotes || [])];
+    copy.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return copy;
+  }, [houseNotes]);
 
   function remainingDnd(u) {
     if (!u || u.status !== "DND" || !u.dndUntil) return null;
@@ -213,6 +234,43 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             ) : (
               <div className="small">No members found.</div>
             )}
+          </div>
+
+          <div className="section-title">House board</div>
+          <div className="panel">
+            <div className="stack">
+              <div className="row" style={{ gap: "8px" }}>
+                <input
+                  className="input"
+                  placeholder="Share a note with your house"
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  style={{ flex: "1 1 auto", minWidth: 0 }}
+                />
+                <button className="btn secondary small" onClick={addNote} disabled={!canAddNote}>
+                  <span className="material-symbols-outlined" aria-hidden="true">add</span>
+                  <span>Post</span>
+                </button>
+              </div>
+              <div className="list">
+                {boardNotes.length === 0 && <div className="small">No notes yet.</div>}
+                {boardNotes.map(n => {
+                  const author = houseUsers.find(u => u.id === n.authorId);
+                  return (
+                    <div key={n.id} className="note-bubble">
+                      <div className="note-text">{n.text}</div>
+                      <div className="note-meta">
+                        <span className="small">{author?.name || "Unknown"}</span>
+                        <span className="small">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</span>
+                        {author?.id === me?.id && (
+                          <button className="btn ghost" onClick={() => actions.deleteNote(n.id)}>Delete</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="section-title">Guest status</div>

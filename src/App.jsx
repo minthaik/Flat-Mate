@@ -6,7 +6,7 @@ import Toast from "./components/Toast";
 
 import { reducer, loadInitial } from "./store/reducer";
 import { STORAGE_KEY } from "./store/utils";
-import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists } from "./store/selectors";
+import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseNotes } from "./store/selectors";
 import { uid } from "./store/utils";
 
 export default function App() {
@@ -46,6 +46,7 @@ export default function App() {
   const houseUsers = getHouseUsers(state, me);
   const houseChores = getHouseChores(state, me);
   const houseGuests = getHouseGuests(state, me);
+  const houseNotes = getHouseNotes(state, me);
   const todoLists = getTodoLists(state, me);
 
   const actions = useMemo(() => ({
@@ -58,6 +59,8 @@ export default function App() {
     addChore: (chore) => dispatch({ type: "ADD_CHORE", chore }),
     setStatus: (userId, status, until, statusNote) => dispatch({ type: "SET_STATUS", userId, status, until, statusNote }),
     addGuest: (guest) => dispatch({ type: "ADD_GUEST", guest }),
+    addNote: (note) => dispatch({ type: "ADD_NOTE", note }),
+    deleteNote: (noteId) => dispatch({ type: "DELETE_NOTE", noteId }),
     toggleChoreItem: (choreId, itemId) => dispatch({ type: "TOGGLE_CHORE_ITEM", choreId, itemId }),
     completeChore: (choreId, userId) => dispatch({ type: "COMPLETE_CHORE", choreId, userId }),
     setTheme: (theme) => dispatch({ type: "SET_THEME", theme }),
@@ -109,6 +112,7 @@ export default function App() {
             houseUsers={houseUsers}
             houseChores={houseChores}
             houseGuests={houseGuests}
+            houseNotes={houseNotes}
             todoLists={todoLists}
             actions={actions}
           />

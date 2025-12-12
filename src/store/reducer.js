@@ -24,6 +24,7 @@ function ensureDndUntil(until) {
 function normalizeDb(db) {
   const existingCodes = new Set();
   const normTodoLists = Array.isArray(db?.todoLists) ? db.todoLists : [];
+  const normNotes = Array.isArray(db?.notes) ? db.notes : [];
   const normUsers = (db?.users ?? SEED_DB.users).map(u => {
     const status = u.status || "HOME";
     const validUntil = u.dndUntil ? new Date(u.dndUntil) : null;
@@ -58,7 +59,8 @@ function normalizeDb(db) {
     houses: normHouses,
     guests: Array.isArray(db?.guests) ? db.guests : [],
     chores: Array.isArray(db?.chores) ? db.chores : [],
-    todoLists: normTodoLists
+    todoLists: normTodoLists,
+    notes: normNotes
   };
 }
 
@@ -231,6 +233,22 @@ export function reducer(state, action) {
         ...state,
         db: { ...state.db, guests: [...state.db.guests, guest] }
       }, "Guest added.");
+    }
+
+    case "ADD_NOTE": {
+      const note = action.note;
+      if (!note?.houseId || !note?.text) return state;
+      return toast({
+        ...state,
+        db: { ...state.db, notes: [...(state.db.notes || []), note] }
+      }, "Note added.");
+    }
+
+    case "DELETE_NOTE": {
+      const { noteId } = action;
+      if (!noteId) return state;
+      const notes = (state.db.notes || []).filter(n => n.id !== noteId);
+      return toast({ ...state, db: { ...state.db, notes } }, "Note removed.");
     }
 
     case "SET_THEME": {

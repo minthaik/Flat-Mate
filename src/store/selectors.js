@@ -23,6 +23,11 @@ export function getHouseGuests(state, me) {
   return (state.db.guests || []).filter(g => g.houseId === me.houseId);
 }
 
+export function getHouseNotes(state, me) {
+  if (!me?.houseId) return [];
+  return (state.db.notes || []).filter(n => n.houseId === me.houseId);
+}
+
 export function getTodoLists(state, me) {
   if (!me) return [];
   return (state.db.todoLists || []).filter(l => {
