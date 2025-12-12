@@ -60,7 +60,7 @@ export default function App() {
     <div className="app-shell">
       <div className="topbar">
         <div className="brand-cluster">
-          <img src="/paxbud-logo.png" alt="paxbud logo" className="logo-img" />
+          <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
         </div>
         <div className="topbar-right">
           {me && (

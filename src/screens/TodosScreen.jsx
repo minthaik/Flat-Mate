@@ -108,15 +108,15 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
               <div className="panel-title">Lists</div>
               <div className="row" style={{ flexWrap: "wrap", gap: "8px" }}>
                 {visibleLists.map(list => (
-                  <button
-                    key={list.id}
-                    className={`btn ghost todo-chip ${list.visibility === "shared" ? "shared" : "personal"} ${selectedList?.id === list.id ? "selected" : ""}`}
-                    onClick={() => setSelectedListId(list.id)}
-                    style={{ flex: "0 0 auto" }}
-                  >
-                    {list.title} {list.visibility === "shared" ? "ƒ?› Shared" : "ƒ?› Personal"}
-                  </button>
-                ))}
+                <button
+                  key={list.id}
+                  className={`btn ghost todo-chip ${list.visibility === "shared" ? "shared" : "personal"} ${selectedList?.id === list.id ? "selected" : ""}`}
+                  onClick={() => setSelectedListId(list.id)}
+                  style={{ flex: "0 0 auto" }}
+                >
+                  {list.title} {list.visibility === "shared" ? "• Shared" : "• Personal"}
+                </button>
+              ))}
                 {visibleLists.length === 0 && <div className="small">No lists yet.</div>}
               </div>
             </div>
@@ -125,18 +125,19 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
               <div className="card">
                 <div className="panel-title">Tasks</div>
                 <div className="stack">
-                  <div className="row">
-                    <input
-                      className="input"
-                      placeholder="New task"
-                      value={newTaskTitle}
-                      onChange={e => setNewTaskTitle(e.target.value)}
-                    />
-                    <button className="btn secondary small" onClick={addTask} disabled={!newTaskTitle.trim()}>
-                      <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                      <span>Add Task</span>
-                    </button>
-                  </div>
+                <div className="row">
+                  <input
+                    className="input"
+                    placeholder="New task"
+                    value={newTaskTitle}
+                    onChange={e => setNewTaskTitle(e.target.value)}
+                    style={{ flex: "1 1 auto", minWidth: 0 }}
+                  />
+                  <button className="btn secondary small" style={{ flexShrink: 0 }} onClick={addTask} disabled={!newTaskTitle.trim()}>
+                    <span className="material-symbols-outlined" aria-hidden="true">add</span>
+                    <span>Add Task</span>
+                  </button>
+                </div>
                   <div className="list">
                     {selectedList.tasks?.length === 0 && <div className="small">No tasks.</div>}
                     {selectedList.tasks?.map(task => (
