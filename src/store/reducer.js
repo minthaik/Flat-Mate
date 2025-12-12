@@ -24,7 +24,9 @@ function ensureDndUntil(until) {
 function normalizeDb(db) {
   const existingCodes = new Set();
   const normTodoLists = Array.isArray(db?.todoLists) ? db.todoLists : [];
-  const normNotes = Array.isArray(db?.notes) ? db.notes : [];
+  const normNotes = Array.isArray(db?.notes)
+    ? db.notes.map(n => ({ pinned: false, ...n }))
+    : [];
   const normUsers = (db?.users ?? SEED_DB.users).map(u => {
     const status = u.status || "HOME";
     const validUntil = u.dndUntil ? new Date(u.dndUntil) : null;
@@ -238,9 +240,20 @@ export function reducer(state, action) {
     case "ADD_NOTE": {
       const note = action.note;
       if (!note?.houseId || !note?.text) return state;
+      const existing = [...(state.db.notes || [])];
+      const idx = existing.findIndex(n => n.houseId === note.houseId && n.authorId === note.authorId);
+      let nextNotes;
+      if (idx >= 0) {
+        const current = existing[idx];
+        const updated = { ...current, ...note, pinned: current.pinned ?? false };
+        nextNotes = [...existing.slice(0, idx), updated, ...existing.slice(idx + 1)];
+      } else {
+        nextNotes = [...existing, { pinned: false, ...note }];
+      }
+      const trimmed = nextNotes.slice(-50); // keep most recent 50
       return toast({
         ...state,
-        db: { ...state.db, notes: [...(state.db.notes || []), note] }
+        db: { ...state.db, notes: trimmed }
       }, "Note added.");
     }
 
@@ -249,6 +262,13 @@ export function reducer(state, action) {
       if (!noteId) return state;
       const notes = (state.db.notes || []).filter(n => n.id !== noteId);
       return toast({ ...state, db: { ...state.db, notes } }, "Note removed.");
+    }
+
+    case "UPDATE_NOTE": {
+      const { noteId, patch } = action;
+      if (!noteId || !patch) return state;
+      const notes = (state.db.notes || []).map(n => (n.id === noteId ? { ...n, ...patch } : n));
+      return toast({ ...state, db: { ...state.db, notes } }, "Note updated.");
     }
 
     case "SET_THEME": {

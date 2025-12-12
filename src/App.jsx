@@ -77,7 +77,8 @@ export default function App() {
     deleteTodoItem: (listId, taskId) => dispatch({ type: "DELETE_TODO_ITEM", listId, taskId }),
 
     checkDndExpiry: () => dispatch({ type: "CHECK_DND_EXPIRY" }),
-    dismissToast: () => dispatch({ type: "DISMISS_TOAST" })
+    dismissToast: () => dispatch({ type: "DISMISS_TOAST" }),
+    updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch })
   }), [dispatch]);
 
   return (

@@ -18,6 +18,8 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   const [statusNote, setStatusNote] = useState("");
   const [pendingStatus, setPendingStatus] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [showAllNotes, setShowAllNotes] = useState(false);
+  const [expandedNoteId, setExpandedNoteId] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
 
   useEffect(() => {
@@ -124,9 +126,18 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
 
   const boardNotes = useMemo(() => {
     const copy = [...(houseNotes || [])];
-    copy.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    copy.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
     return copy;
   }, [houseNotes]);
+  const displayNotes = showAllNotes ? boardNotes : boardNotes.slice(0, 5);
+  const myExistingNote = useMemo(
+    () => boardNotes.find(n => n.authorId === me?.id),
+    [boardNotes, me?.id]
+  );
 
   function remainingDnd(u) {
     if (!u || u.status !== "DND" || !u.dndUntil) return null;
@@ -249,27 +260,64 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                 />
                 <button className="btn secondary small" onClick={addNote} disabled={!canAddNote}>
                   <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                  <span>Post</span>
+                  <span>{myExistingNote ? "Update" : "Post"}</span>
                 </button>
               </div>
-              <div className="list">
+              <div className={`list ${showAllNotes ? "notes-list" : ""}`}>
                 {boardNotes.length === 0 && <div className="small">No notes yet.</div>}
-                {boardNotes.map(n => {
+                {displayNotes.map(n => {
                   const author = houseUsers.find(u => u.id === n.authorId);
+                  const isExpanded = expandedNoteId === n.id;
+                  const accent = author?.avatarColor || "#008000";
+                  const bubbleStyle = {
+                    background: `linear-gradient(135deg, ${accent}1f, ${accent}33)`,
+                    borderColor: `${accent}55`
+                  };
                   return (
-                    <div key={n.id} className="note-bubble">
+                    <div
+                      key={n.id}
+                      className={`note-bubble ${isExpanded ? "expanded" : "collapsed"}`}
+                      style={bubbleStyle}
+                      onClick={() => setExpandedNoteId(isExpanded ? null : n.id)}
+                    >
                       <div className="note-text">{n.text}</div>
                       <div className="note-meta">
                         <span className="small">{author?.name || "Unknown"}</span>
                         <span className="small">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</span>
-                        {author?.id === me?.id && (
-                          <button className="btn ghost" onClick={() => actions.deleteNote(n.id)}>Delete</button>
-                        )}
+                        <div className="row" style={{ gap: 6, marginLeft: "auto" }}>
+                          <button
+                            className="btn ghost small"
+                            onClick={e => {
+                              e.stopPropagation();
+                              actions.updateNote(n.id, { pinned: !n.pinned });
+                            }}
+                          >
+                            {n.pinned ? "Unpin" : "Pin"}
+                          </button>
+                          {author?.id === me?.id && (
+                            <button
+                              className="btn ghost small"
+                              onClick={e => {
+                                e.stopPropagation();
+                                actions.deleteNote(n.id);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {boardNotes.length > 5 && (
+                <div className="row" style={{ justifyContent: "flex-end" }}>
+                  <button className="btn ghost" onClick={() => setShowAllNotes(prev => !prev)}>
+                    {showAllNotes ? "Show less" : `Show all (${boardNotes.length})`}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
