@@ -495,7 +495,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
               />
             </div>
             <div className="modal-actions">
-              <button className="btn secondary" onClick={() => setGuestModalOpen(false)}>Cancel</button>
+              <button className="btn danger" onClick={() => setGuestModalOpen(false)}>Cancel</button>
               <button className="btn" onClick={addGuest} disabled={!canAddGuest}>Save</button>
             </div>
           </div>
@@ -544,7 +544,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
               <div className="small">During DND, guests cannot be scheduled for you.</div>
             </div>
             <div className="modal-actions">
-              <button className="btn secondary" onClick={() => setDndModalOpen(false)}>Cancel</button>
+              <button className="btn danger" onClick={() => setDndModalOpen(false)}>Cancel</button>
               <button className="btn" onClick={() => saveStatus("DND", statusNote)}>Save</button>
             </div>
           </div>
@@ -574,7 +574,7 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
               />
             </div>
             <div className="modal-actions">
-              <button className="btn secondary" onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}>Cancel</button>
+              <button className="btn danger" onClick={() => { setStatusModalOpen(false); setPendingStatus(null); }}>Cancel</button>
               <button className="btn" onClick={() => saveStatus(pendingStatus, statusNote)}>Save</button>
             </div>
           </div>
