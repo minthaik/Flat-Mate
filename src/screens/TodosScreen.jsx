@@ -1,37 +1,44 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 export default function TodosScreen({ me, houseUsers = [], todoLists = [], actions }) {
-  const [selectedListId, setSelectedListId] = useState(null);
   const [newListTitle, setNewListTitle] = useState("");
   const [newListItems, setNewListItems] = useState([{ id: "item-1", text: "" }]);
   const [newListShared, setNewListShared] = useState(false);
   const [newListMembers, setNewListMembers] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const [newTaskTitle, setNewTaskTitle] = useState("");
   const [listFilter, setListFilter] = useState("all");
+  const [taskInputs, setTaskInputs] = useState({});
   const [pendingSelectNew, setPendingSelectNew] = useState(false);
 
-  const tasksRef = useRef(null);
-  const taskInputRef = useRef(null);
   const listTitleRef = useRef(null);
   const prevListCount = useRef(0);
 
   const genId = () => `todo_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 6)}`;
 
-  const visibleLists = useMemo(() => todoLists, [todoLists]);
   const filteredLists = useMemo(() => {
-    if (listFilter === "my") return visibleLists.filter(l => l.visibility === "personal");
-    if (listFilter === "shared") return visibleLists.filter(l => l.visibility === "shared");
-    return visibleLists;
-  }, [visibleLists, listFilter]);
+    if (listFilter === "my") return todoLists.filter(l => l.visibility === "personal");
+    if (listFilter === "shared") return todoLists.filter(l => l.visibility === "shared");
+    return todoLists;
+  }, [todoLists, listFilter]);
 
-  const selectedList = filteredLists.find(l => l.id === selectedListId) || filteredLists[0] || null;
-  const allTasksDone = selectedList ? (selectedList.tasks || []).every(t => t.isDone) : false;
-  const selectedProgress = selectedList
-    ? Math.round(((selectedList.tasks || []).filter(t => t.isDone).length / Math.max((selectedList.tasks || []).length || 1, 1)) * 100)
-    : 0;
-  const filteredTasks = selectedList ? selectedList.tasks || [] : [];
+  useEffect(() => {
+    if (listTitleRef.current && showCreateForm) {
+      listTitleRef.current.focus();
+    }
+  }, [showCreateForm]);
+
+  useEffect(() => {
+    const count = todoLists.length;
+    if (pendingSelectNew && count > prevListCount.current) {
+      const last = todoLists[count - 1];
+      if (last) {
+        setTaskInputs(prev => ({ ...prev, [last.id]: "" }));
+      }
+      setPendingSelectNew(false);
+    }
+    prevListCount.current = count;
+  }, [todoLists, pendingSelectNew]);
 
   function createList() {
     const items = newListItems.map(i => (i.text || "").trim()).filter(Boolean);
@@ -58,46 +65,12 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
     setPendingSelectNew(true);
   }
 
-  function addTask() {
-    if (!selectedList || !newTaskTitle.trim()) return;
-    actions.addTodoItem(selectedList.id, { title: newTaskTitle.trim(), isDone: false });
-    setNewTaskTitle("");
+  function addTask(listId) {
+    const title = (taskInputs[listId] || "").trim();
+    if (!title) return;
+    actions.addTodoItem(listId, { id: genId(), title, isDone: false });
+    setTaskInputs(prev => ({ ...prev, [listId]: "" }));
   }
-
-  useEffect(() => {
-    const count = visibleLists.length;
-    if (prevListCount.current === 0) prevListCount.current = count;
-    if (pendingSelectNew && count > prevListCount.current) {
-      const last = visibleLists[count - 1];
-      if (last) {
-        setSelectedListId(last.id);
-      }
-      setPendingSelectNew(false);
-    }
-    prevListCount.current = count;
-  }, [visibleLists, pendingSelectNew]);
-
-  // Keep selected list in sync with filter
-  useEffect(() => {
-    if (!filteredLists.some(l => l.id === selectedListId)) {
-      setSelectedListId(filteredLists[0]?.id || null);
-    }
-  }, [filteredLists, selectedListId]);
-
-  useEffect(() => {
-    if (tasksRef.current) {
-      tasksRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    if (taskInputRef.current) {
-      taskInputRef.current.focus();
-    }
-  }, [selectedListId]);
-
-  useEffect(() => {
-    if (listTitleRef.current && showCreateForm) {
-      listTitleRef.current.focus();
-    }
-  }, [showCreateForm]);
 
   return (
     <>
@@ -230,6 +203,7 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
                   </button>
                 ))}
               </div>
+              <div style={{ height: "var(--space-3)" }} />
               {filteredLists.length === 0 && <div className="small">No lists found.</div>}
               <div className="list">
                 {filteredLists.map(list => {
@@ -238,11 +212,7 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
                   const pct = Math.round((done / total) * 100);
                   const owner = houseUsers.find(u => u.id === list.ownerId);
                   return (
-                    <button
-                      key={list.id}
-                      className={`todo-list-card ${selectedList?.id === list.id ? "selected" : ""}`}
-                      onClick={() => setSelectedListId(list.id)}
-                    >
+                    <div key={list.id} className="todo-list-card">
                       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                         <span className="h2" style={{ margin: 0 }}>{list.title}</span>
                         <span className={`pill ${list.visibility === "shared" ? "shared" : "personal"}`}>
@@ -251,89 +221,77 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
                       </div>
                       <div className="small">
                         {list.visibility === "shared"
-                          ? `Owner: ${owner?.name || "Unknown"} - ${list.memberIds?.length || 1} member(s)`
-                          : `${owner?.name || "Me"} - ${list.memberIds?.length || 1} member(s)`}
+                          ? `Owner: ${owner?.name || "Unknown"} · ${list.memberIds?.length || 1} member(s)`
+                          : `${owner?.name || "Me"} · ${list.memberIds?.length || 1} member(s)`}
                       </div>
                       <div className="progress">
                         <div className="progress-bar" style={{ width: `${pct}%` }} />
                       </div>
                       <div className="small">{done} / {total} done</div>
-                    </button>
+
+                      <div className="stack" style={{ marginTop: "var(--space-3)" }}>
+                        <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
+                          <input
+                            className="input"
+                            placeholder="New task"
+                            value={taskInputs[list.id] || ""}
+                            onChange={e => setTaskInputs(prev => ({ ...prev, [list.id]: e.target.value }))}
+                            style={{ flex: "1 1 200px", minWidth: 0 }}
+                          />
+                          <button className="btn secondary small" style={{ flexShrink: 0 }} onClick={() => addTask(list.id)} disabled={!((taskInputs[list.id] || "").trim())}>
+                            <span className="material-symbols-outlined" aria-hidden="true">add</span>
+                            <span>Add Task</span>
+                          </button>
+                        </div>
+                        <div className="list">
+                          {(list.tasks || []).length === 0 && <div className="small">No tasks.</div>}
+                          {(list.tasks || []).map(task => (
+                            <div key={task.id} className="row task-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                              <label className="row" style={{ flex: 1, gap: "var(--space-2)" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!task.isDone}
+                                  onChange={() => actions.toggleTodoItem(list.id, task.id)}
+                                />
+                                <span className="small" style={{ textDecoration: task.isDone ? "line-through" : "none" }}>
+                                  {task.title}
+                                </span>
+                              </label>
+                              <div className="row task-actions" style={{ gap: 6 }}>
+                                <button
+                                  className="btn ghost small"
+                                  onClick={() => actions.toggleTodoItem(list.id, task.id)}
+                                >
+                                  {task.isDone ? "Undo" : "Complete"}
+                                </button>
+                                <button
+                                  className="btn ghost small"
+                                  onClick={() => actions.deleteTodoItem(list.id, task.id)}
+                                  disabled={!task.isDone}
+                                  title={!task.isDone ? "Mark complete first" : "Delete task"}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="row" style={{ justifyContent: "flex-end", gap: "var(--space-2)" }}>
+                          <button
+                            className="btn danger"
+                            onClick={() => actions.deleteTodoList(list.id)}
+                            disabled={(list.tasks || []).some(t => !t.isDone)}
+                            title={(list.tasks || []).some(t => !t.isDone) ? "Complete all tasks to delete list" : "Delete list"}
+                          >
+                            Delete list
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
-
-            {selectedList && (
-              <div className="card" ref={tasksRef}>
-                <div className="panel-title">Tasks</div>
-                <div className="stack">
-                  <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
-                    <input
-                      className="input"
-                      placeholder="New task"
-                      value={newTaskTitle}
-                      onChange={e => setNewTaskTitle(e.target.value)}
-                      ref={taskInputRef}
-                      style={{ flex: "1 1 200px", minWidth: 0 }}
-                    />
-                    <button className="btn secondary small" style={{ flexShrink: 0 }} onClick={addTask} disabled={!newTaskTitle.trim()}>
-                      <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                      <span>Add Task</span>
-                    </button>
-                  </div>
-                  <div className="row" style={{ gap: "var(--space-2)", alignItems: "center" }}>
-                    <div className="progress" style={{ flex: "1 1 120px" }}>
-                      <div className="progress-bar" style={{ width: `${selectedProgress}%` }} />
-                    </div>
-                    <span className="small">{selectedProgress}% complete</span>
-                  </div>
-                  <div className="list">
-                    {filteredTasks.length === 0 && <div className="small">No tasks.</div>}
-                    {filteredTasks.map(task => (
-                      <div key={task.id} className="row task-row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                        <label className="row" style={{ flex: 1, gap: "var(--space-2)" }}>
-                          <input
-                            type="checkbox"
-                            checked={!!task.isDone}
-                            onChange={() => actions.toggleTodoItem(selectedList.id, task.id)}
-                          />
-                          <span className="small" style={{ textDecoration: task.isDone ? "line-through" : "none" }}>
-                            {task.title}
-                          </span>
-                        </label>
-                        <div className="row task-actions" style={{ gap: 6 }}>
-                          <button
-                            className="btn ghost small"
-                            onClick={() => actions.toggleTodoItem(selectedList.id, task.id)}
-                          >
-                            {task.isDone ? "Undo" : "Complete"}
-                          </button>
-                          <button
-                            className="btn ghost small"
-                            onClick={() => actions.deleteTodoItem(selectedList.id, task.id)}
-                            disabled={!task.isDone}
-                            title={!task.isDone ? "Mark complete first" : "Delete task"}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-                    <button
-                      className="btn danger"
-                      onClick={() => actions.deleteTodoList(selectedList.id)}
-                      disabled={!allTasksDone}
-                      title={allTasksDone ? "Delete list" : "Complete all tasks to delete list"}
-                    >
-                      Delete list
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
