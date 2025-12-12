@@ -583,8 +583,3 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     </>
   );
 }
-
-
-
-
-
