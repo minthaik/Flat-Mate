@@ -9,6 +9,7 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [listFilter, setListFilter] = useState("all");
   const [taskFilter, setTaskFilter] = useState("all");
   const [pendingSelectNew, setPendingSelectNew] = useState(false);
 
@@ -20,10 +21,11 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
   const genId = () => `todo_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 6)}`;
 
   const visibleLists = useMemo(() => todoLists, [todoLists]);
-  const listsByVisibility = useMemo(() => ({
-    personal: visibleLists.filter(l => l.visibility === "personal"),
-    shared: visibleLists.filter(l => l.visibility === "shared")
-  }), [visibleLists]);
+  const filteredLists = useMemo(() => {
+    if (listFilter === "my") return visibleLists.filter(l => l.visibility === "personal");
+    if (listFilter === "shared") return visibleLists.filter(l => l.visibility === "shared");
+    return visibleLists;
+  }, [visibleLists, listFilter]);
 
   const selectedList = visibleLists.find(l => l.id === selectedListId) || visibleLists[0] || null;
   const allTasksDone = selectedList ? (selectedList.tasks || []).every(t => t.isDone) : false;
@@ -217,65 +219,48 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
           <div className="stack">
             <div className="card">
               <div className="panel-title">Lists</div>
-              {visibleLists.length === 0 && <div className="small">No lists yet.</div>}
+              <div className="row" style={{ flexWrap: "wrap", gap: "var(--space-2)" }}>
+                {["all", "my", "shared"].map(f => (
+                  <button
+                    key={f}
+                    className={`btn ghost small ${listFilter === f ? "selected" : ""}`}
+                    onClick={() => setListFilter(f)}
+                  >
+                    {f === "all" ? "All" : f === "my" ? "My lists" : "Shared with me"}
+                  </button>
+                ))}
+              </div>
+              {filteredLists.length === 0 && <div className="small">No lists found.</div>}
               <div className="list">
-                {listsByVisibility.personal.length > 0 && (
-                  <>
-                    <div className="small">My lists</div>
-                    {listsByVisibility.personal.map(list => {
-                      const done = (list.tasks || []).filter(t => t.isDone).length;
-                      const total = (list.tasks || []).length || 1;
-                      const pct = Math.round((done / total) * 100);
-                      const owner = houseUsers.find(u => u.id === list.ownerId);
-                      return (
-                        <button
-                          key={list.id}
-                          className={`todo-list-card ${selectedList?.id === list.id ? "selected" : ""}`}
-                          onClick={() => setSelectedListId(list.id)}
-                        >
-                          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                            <span className="h2" style={{ margin: 0 }}>{list.title}</span>
-                            <span className="pill personal">Personal</span>
-                          </div>
-                          <div className="small">{owner?.name || "Me"} · {list.memberIds?.length || 1} member(s)</div>
-                          <div className="progress">
-                            <div className="progress-bar" style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="small">{done} / {total} done</div>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
-
-                {listsByVisibility.shared.length > 0 && (
-                  <>
-                    <div className="small" style={{ marginTop: "var(--space-3)" }}>Shared with me</div>
-                    {listsByVisibility.shared.map(list => {
-                      const done = (list.tasks || []).filter(t => t.isDone).length;
-                      const total = (list.tasks || []).length || 1;
-                      const pct = Math.round((done / total) * 100);
-                      const owner = houseUsers.find(u => u.id === list.ownerId);
-                      return (
-                        <button
-                          key={list.id}
-                          className={`todo-list-card ${selectedList?.id === list.id ? "selected" : ""}`}
-                          onClick={() => setSelectedListId(list.id)}
-                        >
-                          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                            <span className="h2" style={{ margin: 0 }}>{list.title}</span>
-                            <span className="pill shared">Shared</span>
-                          </div>
-                          <div className="small">Owner: {owner?.name || "Unknown"} · {list.memberIds?.length || 1} member(s)</div>
-                          <div className="progress">
-                            <div className="progress-bar" style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="small">{done} / {total} done</div>
-                        </button>
-                      );
-                    })}
-                  </>
-                )}
+                {filteredLists.map(list => {
+                  const done = (list.tasks || []).filter(t => t.isDone).length;
+                  const total = (list.tasks || []).length || 1;
+                  const pct = Math.round((done / total) * 100);
+                  const owner = houseUsers.find(u => u.id === list.ownerId);
+                  return (
+                    <button
+                      key={list.id}
+                      className={`todo-list-card ${selectedList?.id === list.id ? "selected" : ""}`}
+                      onClick={() => setSelectedListId(list.id)}
+                    >
+                      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <span className="h2" style={{ margin: 0 }}>{list.title}</span>
+                        <span className="pill {list.visibility === \"shared\" ? \"shared\" : \"personal\"}">
+                          {list.visibility === "shared" ? "Shared" : "Personal"}
+                        </span>
+                      </div>
+                      <div className="small">
+                        {list.visibility === "shared"
+                          ? `Owner: ${owner?.name || "Unknown"} · ${list.memberIds?.length || 1} member(s)`
+                          : `${owner?.name || "Me"} · ${list.memberIds?.length || 1} member(s)`}
+                      </div>
+                      <div className="progress">
+                        <div className="progress-bar" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="small">{done} / {total} done</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
