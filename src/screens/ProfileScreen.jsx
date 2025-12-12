@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { processProfilePhoto } from "../utils/media";
 
 const COLORS = ["#7ea0ff", "#31c48d", "#f5c44f", "#ff7b7b", "#5c9dff"];
 
@@ -9,8 +8,6 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   const [avatarColor, setAvatarColor] = useState(COLORS[0]);
   const [notifyPush, setNotifyPush] = useState(true);
   const [notifyEmail, setNotifyEmail] = useState(false);
-  const [photo, setPhoto] = useState(null);
-  const [photoError, setPhotoError] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [houseName, setHouseName] = useState("");
 
@@ -21,8 +18,6 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
     setAvatarColor(me.avatarColor || COLORS[0]);
     setNotifyPush(me.notifications?.push ?? true);
     setNotifyEmail(me.notifications?.email ?? false);
-    setPhoto(me.photo || null);
-    setPhotoError("");
     const firstOther = houseUsers.find(u => u.id !== me.id);
     setTransferTo(firstOther?.id || "");
     setHouseName(house?.name || "");
@@ -37,8 +32,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
       name: name.trim() || me.name,
       tagline: tagline.trim(),
       avatarColor,
-      notifications: { push: notifyPush, email: notifyEmail },
-      photo
+      notifications: { push: notifyPush, email: notifyEmail }
     });
   }
 
@@ -70,27 +64,27 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
         <div className="row" style={{ alignItems: "center", gap: 12 }}>
           <div
             className="logo-mark"
-            aria-hidden="true"
-            style={{
-              background: photo ? "transparent" : avatarColor,
-              width: 100,
-              height: 100,
-              color: "#0b1b3a",
-              border: "1px solid rgba(255,255,255,0.25)",
-              overflow: "hidden",
-              padding: 0
-            }}
-          >
-            {photo ? (
-              <img src={photo} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              me.name?.[0]?.toUpperCase() || "?"
-            )}
-          </div>
-          <div className="stack">
-            <div className="h2" style={{ margin: 0 }}>{me.name}</div>
-            <div className="small">{me.email}</div>
-            <div className="small">{house ? `House: ${house.name}` : "No house joined"}</div>
+          aria-hidden="true"
+          style={{
+            background: avatarColor,
+            width: 100,
+            height: 100,
+            color: "#0b1b3a",
+            border: "1px solid rgba(255,255,255,0.25)",
+            overflow: "hidden",
+            padding: 0,
+            display: "grid",
+            placeItems: "center",
+            fontSize: 32,
+            fontWeight: 700
+          }}
+        >
+          {me.name?.[0]?.toUpperCase() || "?"}
+        </div>
+        <div className="stack">
+          <div className="h2" style={{ margin: 0 }}>{me.name}</div>
+          <div className="small">{me.email}</div>
+          <div className="small">{house ? `House: ${house.name}` : "No house joined"}</div>
           </div>
         </div>
 
@@ -125,35 +119,6 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
               />
             ))}
           </div>
-        </div>
-
-        <div className="card">
-          <div className="panel-title">Profile photo</div>
-          <div className="stack">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={async e => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  setPhotoError("");
-                  const processed = await processProfilePhoto(file);
-                  setPhoto(processed);
-                } catch (err) {
-                  setPhotoError(err?.message || "Unable to process image");
-                }
-              }}
-            />
-            {photo && (
-              <div className="row">
-                <button className="btn ghost" onClick={() => setPhoto(null)}>
-                  Remove
-                </button>
-              </div>
-            )}
-          </div>
-          {photoError && <div className="small emphasis" style={{ color: "var(--md-sys-color-danger)" }}>{photoError}</div>}
         </div>
 
         <div className="card">
