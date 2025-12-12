@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 
-const ChoreDetailDialog = forwardRef(function ChoreDetailDialog({ me, houseUsers, chores, actions }, ref) {
+const ChoreDetailDialog = forwardRef(function ChoreDetailDialog({ me, houseUsers, chores, actions, onEdit, houseAdminId }, ref) {
   const [open, setOpen] = useState(false);
   const [choreId, setChoreId] = useState(null);
 
@@ -13,11 +13,14 @@ const ChoreDetailDialog = forwardRef(function ChoreDetailDialog({ me, houseUsers
 
   const chore = useMemo(() => (chores || []).find(c => c.id === choreId) || null, [chores, choreId]);
   const assignee = useMemo(() => houseUsers.find(u => u.id === chore?.assigneeId), [houseUsers, chore?.assigneeId]);
+  const creator = useMemo(() => houseUsers.find(u => u.id === chore?.createdBy), [houseUsers, chore?.createdBy]);
 
   if (!open) return null;
 
   const isMe = !!(chore && me && chore.assigneeId === me.id);
   const isEnded = chore?.state === "ENDED";
+  const isAdmin = !!(me && houseAdminId && houseAdminId === me.id);
+  const canEdit = !!(chore && me && isAdmin);
 
   const required = (chore?.checklist || []).filter(i => i.required);
   const requiredDone = required.every(i => i.isDone);
@@ -51,6 +54,7 @@ const ChoreDetailDialog = forwardRef(function ChoreDetailDialog({ me, houseUsers
               <div className="kv"><span>Due</span><span>{chore.dueAt ? new Date(chore.dueAt).toLocaleDateString() : "-"}</span></div>
               <div className="kv"><span>Cadence</span><span>{chore.cadenceDays} days</span></div>
               <div className="kv"><span>Status</span><span>{chore.state}</span></div>
+              <div className="kv"><span>Created by</span><span>{creator?.name || "Unknown"}</span></div>
             </div>
 
             {chore.notes && (
@@ -100,8 +104,25 @@ const ChoreDetailDialog = forwardRef(function ChoreDetailDialog({ me, houseUsers
               Only the assignee can complete this chore.
             </div>
           )}
+          {chore && !canEdit && (
+            <div className="small" style={{ marginRight: "auto" }}>
+              Only the admin can edit chores.
+            </div>
+          )}
 
           <button className="btn secondary" onClick={() => setOpen(false)}>Close</button>
+
+          {chore && canEdit && (
+            <button
+              className="btn ghost"
+              onClick={() => {
+                setOpen(false);
+                onEdit?.(chore);
+              }}
+            >
+              Edit
+            </button>
+          )}
 
           {chore && isMe && (
             <button

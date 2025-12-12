@@ -228,9 +228,9 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
                   </select>
-                  <div className="row" style={{ marginTop: 6, gap: 8 }}>
-                    <button className="btn secondary" onClick={transferAdmin} disabled={!transferTo}>Transfer admin</button>
+                  <div className="stack" style={{ marginTop: 6, gap: 6, alignItems: "flex-start" }}>
                     <div className="small" style={{ color: "var(--text-muted)" }}>Transfers ownership immediately.</div>
+                    <button className="btn secondary" style={{ width: "auto" }} onClick={transferAdmin} disabled={!transferTo}>Transfer admin</button>
                   </div>
                 </div>
               )}

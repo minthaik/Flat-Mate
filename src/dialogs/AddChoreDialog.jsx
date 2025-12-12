@@ -1,8 +1,9 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useState } from "react";
 import { uid, nowIso, addDays, toDateInputValue, fromDateInputValue } from "../store/utils";
 
-const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, actions }, ref) {
+const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, actions, allowManage = false }, ref) {
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -19,7 +20,9 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
   ]);
 
   useImperativeHandle(ref, () => ({
-    open: () => {
+    openNew: () => {
+      if (!allowManage) return;
+      setEditingId(null);
       setTitle("");
       setNotes("");
       setCadenceDays(7);
@@ -29,6 +32,21 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
       setShowEnd(false);
       setRotationIds(me?.id ? [me.id] : []);
       setChecklist([{ id: uid("item"), label: "", required: true, isDone: false }]);
+      setOpen(true);
+    },
+    openEdit: (chore) => {
+      if (!allowManage) return;
+      if (!chore) return;
+      setEditingId(chore.id);
+      setTitle(chore.title || "");
+      setNotes(chore.notes || "");
+      setCadenceDays(chore.cadenceDays || 7);
+      setStartAt(chore.startAt || nowIso());
+      setDueDate(toDateInputValue(chore.dueAt || nowIso()));
+      setEndAt(chore.endAt || null);
+      setShowEnd(!!chore.endAt);
+      setRotationIds(chore.rotation && chore.rotation.length > 0 ? chore.rotation : (chore.assigneeId ? [chore.assigneeId] : []));
+      setChecklist((chore.checklist || []).map(i => ({ ...i })));
       setOpen(true);
     }
   }), [me?.id]);
@@ -58,14 +76,14 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
   }
 
   function save() {
-    if (!canSave || !me?.houseId) return;
+    if (!allowManage || !canSave || !me?.houseId) return;
 
     const cleanChecklist = (checklist || [])
       .map(i => ({
         id: i.id || uid("item"),
         label: String(i.label || "").trim(),
         required: !!i.required,
-        isDone: false
+        isDone: !!i.isDone
       }))
       .filter(i => i.label.length > 0);
 
@@ -74,24 +92,40 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
 
     const dueAtIso = fromDateInputValue(dueDate) || addDays(startAt, 1);
 
-    const chore = {
-      id: uid("chore"),
-      houseId: me.houseId,
-      title: title.trim(),
-      notes: notes.trim(),
-      createdAt: nowIso(),
-      state: "ACTIVE",
-      cadenceDays: Number(cadenceDays || 7),
-      startAt,
-      endAt: showEnd ? endAt : null,
-      rotation,
-      rotationIndex: 0,
-      assigneeId,
-      dueAt: dueAtIso,
-      checklist: cleanChecklist
-    };
-
-    actions.addChore(chore);
+    if (editingId) {
+      const patch = {
+        title: title.trim(),
+        notes: notes.trim(),
+        cadenceDays: Number(cadenceDays || 7),
+        startAt,
+        endAt: showEnd ? endAt : null,
+        rotation,
+        rotationIndex: 0,
+        assigneeId,
+        dueAt: dueAtIso,
+        checklist: cleanChecklist
+      };
+      actions.updateChore(editingId, patch);
+    } else {
+      const chore = {
+        id: uid("chore"),
+        houseId: me.houseId,
+        createdBy: me.id,
+        title: title.trim(),
+        notes: notes.trim(),
+        createdAt: nowIso(),
+        state: "ACTIVE",
+        cadenceDays: Number(cadenceDays || 7),
+        startAt,
+        endAt: showEnd ? endAt : null,
+        rotation,
+        rotationIndex: 0,
+        assigneeId,
+        dueAt: dueAtIso,
+        checklist: cleanChecklist
+      };
+      actions.addChore(chore);
+    }
     setOpen(false);
   }
 
@@ -101,7 +135,7 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
     <div className="modal-backdrop">
       <div className="modal">
         <div className="modal-header">
-          <div className="h2">Add chore</div>
+          <div className="h2">{editingId ? "Edit chore" : "Add chore"}</div>
           <button className="btn icon-only danger" onClick={() => setOpen(false)} aria-label="Close">
             <span className="material-symbols-outlined">cancel</span>
           </button>
@@ -239,7 +273,7 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
             </div>
           )}
           <button className="btn danger" onClick={() => setOpen(false)}>Cancel</button>
-          <button className="btn" disabled={!canSave} onClick={save}>Create</button>
+          <button className="btn" disabled={!canSave} onClick={save}>{editingId ? "Save" : "Create"}</button>
         </div>
       </div>
     </div>

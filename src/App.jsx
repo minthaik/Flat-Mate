@@ -57,6 +57,7 @@ export default function App() {
     joinHouse: (code) => dispatch({ type: "JOIN_HOUSE", code }),
 
     addChore: (chore) => dispatch({ type: "ADD_CHORE", chore }),
+    updateChore: (choreId, patch) => dispatch({ type: "UPDATE_CHORE", choreId, patch }),
     setStatus: (userId, status, until, statusNote) => dispatch({ type: "SET_STATUS", userId, status, until, statusNote }),
     addGuest: (guest) => dispatch({ type: "ADD_GUEST", guest }),
     addNote: (note) => dispatch({ type: "ADD_NOTE", note }),

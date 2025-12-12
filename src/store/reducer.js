@@ -203,6 +203,16 @@ export function reducer(state, action) {
       }, "Chore created.");
     }
 
+    case "UPDATE_CHORE": {
+      const { choreId, patch } = action;
+      if (!choreId || !patch) return state;
+      const chores = state.db.chores.map(c => {
+        if (c.id !== choreId) return c;
+        return { ...c, ...patch };
+      });
+      return toast({ ...state, db: { ...state.db, chores } }, "Chore updated.");
+    }
+
     case "SET_STATUS": {
       const { userId, status, until, statusNote } = action;
       if (!userId || !status) return state;
