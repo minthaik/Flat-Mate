@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer } from "react";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
 import AuthScreen from "./screens/AuthScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import Dashboard from "./screens/Dashboard";
@@ -19,6 +19,27 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", state.theme || "light");
   }, [state.theme]);
+
+  const [installEvent, setInstallEvent] = useState(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    function handleBeforeInstall(e) {
+      e.preventDefault();
+      setInstallEvent(e);
+      setCanInstall(true);
+    }
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+  }, []);
+
+  async function triggerInstall() {
+    if (!installEvent) return;
+    installEvent.prompt();
+    await installEvent.userChoice;
+    setInstallEvent(null);
+    setCanInstall(false);
+  }
 
   const me = getCurrentUser(state);
   const house = getHouse(state, me);
@@ -63,6 +84,12 @@ export default function App() {
           <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
         </div>
         <div className="topbar-right">
+          {canInstall && (
+            <button className="btn secondary small" onClick={triggerInstall}>
+              <span className="material-symbols-outlined" aria-hidden="true">download</span>
+              <span>Install</span>
+            </button>
+          )}
           {me && (
             <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
               <span className="material-symbols-outlined">power_settings_new</span>
