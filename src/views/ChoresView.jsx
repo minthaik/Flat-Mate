@@ -159,7 +159,7 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
         <div className="panel">
           <div className="stack" style={{ gap: "var(--space-3)" }}>
             <div>
-              <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>This week</div>
+              <div className="panel-title" style={{ marginBottom: "var(--space-2)" }}>This week</div>
               <div className="week-grid">
                 {weekDays.map((day, idx) => {
                   const key = day.toISOString().slice(0, 10);
