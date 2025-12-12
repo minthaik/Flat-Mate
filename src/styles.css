@@ -726,18 +726,24 @@ select {
 .footer-nav {
   position: fixed;
   bottom: env(safe-area-inset-bottom);
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(480px, calc(100% - 24px));
+  left: 0;
+  transform: none;
+  width: 100%;
   background: var(--md-sys-color-surface-1);
   border: 1px solid var(--md-sys-color-outline);
-  border-radius: var(--radius-xl);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: var(--space-3);
-  gap: var(--space-3);
+  border-radius: 0;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
   z-index: 70;
   box-shadow: var(--md-sys-elevation-2);
+}
+
+.footer-nav .nav-shell {
+  width: min(480px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
 }
 
 .nav-btn {

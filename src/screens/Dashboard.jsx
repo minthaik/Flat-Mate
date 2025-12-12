@@ -309,38 +309,40 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
       )}
 
       <div className="footer-nav">
-        <button className={`nav-btn ${tab === "HOME" ? "active" : ""}`} onClick={() => setTab("HOME")}>
-          <span className="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-            </svg>
-          </span>
-          <span className="nav-label">Home</span>
-        </button>
-        <button className={`nav-btn ${tab === "CHORES" ? "active" : ""}`} onClick={() => setTab("CHORES")}>
-          <span className="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M3 7h2v2H3V7Zm0 4h2v2H3v-2Zm0 4h2v2H3v-2ZM7 7h14v2H7V7Zm0 4h14v2H7v-2Zm0 4h14v2H7v-2Z" />
-            </svg>
-          </span>
-          <span className="nav-label">Chores</span>
-        </button>
-        <button className={`nav-btn ${tab === "TODOS" ? "active" : ""}`} onClick={() => setTab("TODOS")}>
-          <span className="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M19 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM9 17H7v-2h2v2Zm0-4H7v-2h2v2Zm0-4H7V7h2v2Zm8 8h-6v-2h6v2Zm0-4h-6v-2h6v2Zm0-4h-6V7h6v2Z" />
-            </svg>
-          </span>
-          <span className="nav-label">To-Dos</span>
-        </button>
-        <button className={`nav-btn ${tab === "PROFILE" ? "active" : ""}`} onClick={() => setTab("PROFILE")}>
-          <span className="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.3 0-7.8 1.7-7.8 4.9V22h15.6v-2.7c0-3.2-4.5-4.9-7.8-4.9Z" />
-            </svg>
-          </span>
-          <span className="nav-label">Profile</span>
-        </button>
+        <div className="nav-shell">
+          <button className={`nav-btn ${tab === "HOME" ? "active" : ""}`} onClick={() => setTab("HOME")}>
+            <span className="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+              </svg>
+            </span>
+            <span className="nav-label">Home</span>
+          </button>
+          <button className={`nav-btn ${tab === "CHORES" ? "active" : ""}`} onClick={() => setTab("CHORES")}>
+            <span className="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 7h2v2H3V7Zm0 4h2v2H3v-2Zm0 4h2v2H3v-2ZM7 7h14v2H7V7Zm0 4h14v2H7v-2Zm0 4h14v2H7v-2Z" />
+              </svg>
+            </span>
+            <span className="nav-label">Chores</span>
+          </button>
+          <button className={`nav-btn ${tab === "TODOS" ? "active" : ""}`} onClick={() => setTab("TODOS")}>
+            <span className="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M19 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM9 17H7v-2h2v2Zm0-4H7v-2h2v2Zm0-4H7V7h2v2Zm8 8h-6v-2h6v2Zm0-4h-6v-2h6v2Zm0-4h-6V7h6v2Z" />
+              </svg>
+            </span>
+            <span className="nav-label">To-Dos</span>
+          </button>
+          <button className={`nav-btn ${tab === "PROFILE" ? "active" : ""}`} onClick={() => setTab("PROFILE")}>
+            <span className="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.3 0-7.8 1.7-7.8 4.9V22h15.6v-2.7c0-3.2-4.5-4.9-7.8-4.9Z" />
+              </svg>
+            </span>
+            <span className="nav-label">Profile</span>
+          </button>
+        </div>
       </div>
 
       {guestModalOpen && (
