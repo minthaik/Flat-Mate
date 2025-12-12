@@ -20,6 +20,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   const [transferTo, setTransferTo] = useState("");
   const [houseName, setHouseName] = useState("");
   const [avatarPreset, setAvatarPreset] = useState(DEFAULT_PRESET_ID);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!me) return;
@@ -64,12 +65,23 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
     actions.regenerateInvite(me.id, house.id);
   }
 
+  function copyInvite() {
+    if (!house?.inviteCode || !navigator?.clipboard) return;
+    navigator.clipboard.writeText(house.inviteCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }
+
   function renameHouse() {
     if (!house) return;
     const clean = houseName.trim();
     if (!clean) return;
     actions.renameHouse(me.id, house.id, clean);
   }
+
+  const isAdmin = house?.adminId === me.id;
+  const canSaveName = house && houseName.trim() && houseName.trim() !== house.name;
 
   return (
     <div className="stack">
@@ -142,6 +154,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
 
           <div className="card">
             <div className="panel-title">Notifications</div>
+            <div className="stack" style={{ gap: "var(--space-2)" }}>
             <label className="check">
               <input type="checkbox" checked={notifyPush} onChange={e => setNotifyPush(e.target.checked)} />
               <div className="small" style={{ fontWeight: 400 }}>Push notifications</div>
@@ -150,6 +163,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
               <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} />
               <div className="small" style={{ fontWeight: 400 }}>Email summaries</div>
             </label>
+            </div>
           </div>
 
           <div className="row" style={{ justifyContent: "flex-end" }}>
@@ -160,59 +174,73 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
 
       {house && (
         <div className="panel">
-          <div className="panel-title">House</div>
-          {house.adminId === me.id && (
-            <div className="stack">
-              <div className="small">House name</div>
-              <input className="input" value={houseName} onChange={e => setHouseName(e.target.value)} />
-              <div className="row">
-                <button className="btn secondary" onClick={renameHouse} disabled={!houseName.trim()}>Save name</button>
-              </div>
-            </div>
-          )}
-          <div className="divider" />
-          <div className="kv">
-            <span>Name</span>
-            <span>{house.name}</span>
-          </div>
-          <div className="divider" />
-          <div className="kv">
-            <span>Invite code</span>
-            <span>{house.inviteCode}</span>
-          </div>
-          {house.adminId === me.id && (
-            <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn secondary" onClick={regenerateInvite}>Regenerate code</button>
-            </div>
-          )}
-          <div className="divider" />
-          <div className="kv">
-            <span>House admin</span>
-            <span>
-              {house.adminId === me.id
-                ? "You"
-                : (houseUsers.find(u => u.id === house.adminId)?.name || "Unassigned")}
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <div className="panel-title">House</div>
+            <span className={`pill ${isAdmin ? "ok" : "muted"}`} style={{ textTransform: "uppercase" }}>
+              {isAdmin ? "Admin" : "Member"}
             </span>
           </div>
-          {house.adminId === me.id && houseUsers.length > 1 && (
-            <>
-              <div className="divider" />
-              <div className="stack" style={{ marginTop: 6 }}>
-                <div className="small">Transfer admin to</div>
-                <select value={transferTo} onChange={e => setTransferTo(e.target.value)}>
-                  <option value="">Select member</option>
-                  {houseUsers.filter(u => u.id !== me.id).map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-                <div className="row" style={{ marginTop: 6 }}>
-                  <button className="btn secondary" onClick={transferAdmin} disabled={!transferTo}>Transfer admin</button>
-                </div>
+
+          <div className="stack" style={{ gap: "var(--space-3)" }}>
+            <div className="stack">
+              <div className="small" style={{ fontWeight: 600 }}>Name</div>
+              <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                <span>{house.name}</span>
               </div>
-            </>
-          )}
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn danger" onClick={leaveHouse}>Leave house</button>
+              {isAdmin && (
+                <div className="row" style={{ gap: 8 }}>
+                  <input className="input" value={houseName} onChange={e => setHouseName(e.target.value)} placeholder="Rename house" />
+                  <button className="btn secondary" onClick={renameHouse} disabled={!canSaveName}>Save</button>
+                </div>
+              )}
+            </div>
+
+            <div className="stack">
+              <div className="small" style={{ fontWeight: 600 }}>Invite code</div>
+              <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: "monospace" }}>{house.inviteCode}</span>
+                <button className="btn ghost small" onClick={copyInvite}>{copied ? "Copied" : "Copy"}</button>
+                {isAdmin && (
+                  <button className="btn ghost small" onClick={regenerateInvite}>Regenerate</button>
+                )}
+              </div>
+              <div className="small" style={{ color: "var(--text-muted)" }}>Share this code to let roommates join.</div>
+            </div>
+
+            <div className="divider" />
+
+            <div className="stack">
+              <div className="kv">
+                <span>House admin</span>
+                <span>
+                  {house.adminId === me.id
+                    ? "You"
+                    : (houseUsers.find(u => u.id === house.adminId)?.name || "Unassigned")}
+                </span>
+              </div>
+
+              {isAdmin && houseUsers.length > 1 && (
+                <div className="stack">
+                  <div className="small" style={{ fontWeight: 600 }}>Transfer admin to</div>
+                  <select value={transferTo} onChange={e => setTransferTo(e.target.value)}>
+                    <option value="">Select member</option>
+                    {houseUsers.filter(u => u.id !== me.id).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                  <div className="row" style={{ marginTop: 6, gap: 8 }}>
+                    <button className="btn secondary" onClick={transferAdmin} disabled={!transferTo}>Transfer admin</button>
+                    <div className="small" style={{ color: "var(--text-muted)" }}>Transfers ownership immediately.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="divider" />
+
+            <div className="row" style={{ marginTop: 4 }}>
+              <button className="btn danger" onClick={leaveHouse}>Leave house</button>
+            </div>
           </div>
         </div>
       )}
