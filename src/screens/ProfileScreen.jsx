@@ -186,6 +186,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   }
 
   const isAdmin = house?.adminId === me.id;
+  const adminUser = houseUsers.find(u => u.id === house?.adminId) || null;
   const canSaveName = house && houseName.trim() && houseName.trim() !== house.name;
   const canSaveCurrency = house && (houseCurrency || "USD").toUpperCase() !== (house.currency || "USD");
 
@@ -400,9 +401,8 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
               <div className="kv">
                 <span>House admin</span>
                 <span>
-                  {house.adminId === me.id
-                    ? "You"
-                    : (houseUsers.find(u => u.id === house.adminId)?.name || "Unassigned")}
+                  {adminUser ? adminUser.name : "Unassigned"}
+                  {adminUser?.id === me.id ? " (You)" : ""}
                 </span>
               </div>
 

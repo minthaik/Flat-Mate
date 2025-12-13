@@ -107,7 +107,8 @@ export default function App() {
 
     checkDndExpiry: () => dispatch({ type: "CHECK_DND_EXPIRY" }),
     dismissToast: () => dispatch({ type: "DISMISS_TOAST" }),
-    updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch })
+    updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch }),
+    syncRemoteHouses: (houses) => dispatch({ type: "SYNC_REMOTE_HOUSES", houses })
   }), [dispatch, state]);
 
   return (

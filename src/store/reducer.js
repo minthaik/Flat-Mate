@@ -188,6 +188,53 @@ function nextAssignee(chore) {
   return { assigneeId: rotation[nextIndex], rotationIndex: nextIndex };
 }
 
+function mergeRemoteHouse(remote, users, fallbackHouse, meId) {
+  if (!remote) return { users, house: fallbackHouse };
+  const houseId = remote.id || remote.houseId;
+  if (!houseId) return { users, house: fallbackHouse };
+  const members = Array.isArray(remote.members) ? remote.members : [];
+  let workingUsers = users;
+  const memberIds = new Set();
+  const remoteIdMap = new Map();
+  members.forEach(member => {
+    const result = ensureRemoteUser(workingUsers, member, houseId);
+    workingUsers = result.users;
+    if (result.userId) {
+      memberIds.add(result.userId);
+      const key = remoteUserKey(member);
+      if (key) remoteIdMap.set(key, result.userId);
+    }
+  });
+  if (memberIds.size === 0 && fallbackHouse?.memberIds) {
+    fallbackHouse.memberIds.forEach(id => memberIds.add(id));
+  }
+  if (meId && !memberIds.has(meId)) {
+    memberIds.add(meId);
+  }
+  const adminRemote = members.find(m => (m.role || "").toLowerCase() === "admin");
+  let adminId = fallbackHouse?.adminId || null;
+  if (adminRemote) {
+    const key = remoteUserKey(adminRemote);
+    if (key && remoteIdMap.has(key)) {
+      adminId = remoteIdMap.get(key);
+    }
+  }
+  if (!adminId) {
+    adminId = pickAdmin(Array.from(memberIds), fallbackHouse?.adminId || null);
+  }
+  const inviteCode = remote.invite_code || remote.inviteCode || fallbackHouse?.inviteCode || "";
+  const currency = (remote.currency || fallbackHouse?.currency || "USD").toUpperCase();
+  const house = {
+    id: houseId,
+    name: remote.name || fallbackHouse?.name || "House",
+    inviteCode,
+    currency,
+    memberIds: Array.from(memberIds),
+    adminId
+  };
+  return { users: workingUsers, house };
+}
+
 export function reducer(state, action) {
   state = clearToast(state);
 
@@ -351,6 +398,48 @@ export function reducer(state, action) {
         db: { ...state.db, houses, users: normalizedUsers },
         view: "DASHBOARD"
       }, "Joined house.");
+    }
+
+    case "SYNC_REMOTE_HOUSES": {
+      const remoteHouses = Array.isArray(action.houses) ? action.houses : [];
+      const meId = state.currentUserId;
+      if (!meId || remoteHouses.length === 0) return state;
+      let users = state.db.users;
+      const remoteIds = new Set();
+      const remoteMap = new Map();
+      remoteHouses.forEach(remote => {
+        const existing = state.db.houses.find(h => h.id === (remote?.id || remote?.houseId));
+        const { users: mergedUsers, house } = mergeRemoteHouse(remote, users, existing, meId);
+        users = mergedUsers;
+        if (house?.id) {
+          remoteIds.add(house.id);
+          remoteMap.set(house.id, house);
+        }
+      });
+      if (remoteMap.size === 0) return state;
+      const updatedHouses = state.db.houses.map(h => {
+        if (remoteMap.has(h.id)) {
+          return remoteMap.get(h.id);
+        }
+        const memberIds = (h.memberIds || []).filter(id => id !== meId);
+        const adminId = h.adminId === meId ? pickAdmin(memberIds, null) : h.adminId;
+        return { ...h, memberIds, adminId };
+      });
+      remoteMap.forEach((house, id) => {
+        if (!updatedHouses.some(h => h.id === id)) {
+          updatedHouses.push(house);
+        }
+      });
+      const remoteHouse = Array.from(remoteMap.values()).find(h => h.memberIds.includes(meId));
+      const currentUser = users.find(u => u.id === meId) || state.db.users.find(u => u.id === meId);
+      const nextHouseId = remoteHouse ? remoteHouse.id : currentUser?.houseId || null;
+      const normalizedUsers = users.map(u =>
+        u.id === meId ? { ...u, houseId: nextHouseId } : u
+      );
+      return {
+        ...state,
+        db: { ...state.db, houses: updatedHouses, users: normalizedUsers }
+      };
     }
 
     case "ADD_CHORE": {

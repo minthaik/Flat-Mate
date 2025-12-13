@@ -1,4 +1,4 @@
-ï»¿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ChoresView from "../views/ChoresView";
 import { uid, fromDateInputValue, toDateInputValue } from "../store/utils";
 import ProfileScreen from "./ProfileScreen";
@@ -52,6 +52,7 @@ export default function Dashboard({
   const [nowTs, setNowTs] = useState(Date.now());
   const [isMoreOpen, setMoreOpen] = useState(false);
   const [tab, setTab] = useState("HOME");
+  const remoteSyncKey = useRef(null);
 
   useEffect(() => {
     const id = setInterval(() => actions.checkDndExpiry(), 60000);
@@ -111,6 +112,27 @@ export default function Dashboard({
   useEffect(() => {
     setStatusNote(me?.statusNote || "");
   }, [me?.statusNote]);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    if (!token || !actions?.syncRemoteHouses) return;
+    const key = `${token}:${house?.id || "none"}`;
+    if (remoteSyncKey.current === key) return;
+    remoteSyncKey.current = key;
+    let aborted = false;
+    fetch("/api/wp-houses", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => []);
+        if (aborted || !resp.ok || !Array.isArray(data)) return;
+        actions.syncRemoteHouses(data);
+      })
+      .catch(() => {});
+    return () => {
+      aborted = true;
+    };
+  }, [actions?.syncRemoteHouses, house?.id]);
 
   function saveStatus(status, note = statusNote) {
     if (!me) return;
@@ -340,7 +362,7 @@ export default function Dashboard({
                         <span className="pill">{exp.type === "shared" ? "Shared" : "Personal"}</span>
                       </div>
                       <div className="small muted" style={{ color: "#f1f5f9" }}>
-                        {exp.category} Â· {fmtCurrency(exp.amount)} Â· {payer?.name || "Unknown"} on {new Date(exp.createdAt).toLocaleDateString()}
+                        {exp.category} · {fmtCurrency(exp.amount)} · {payer?.name || "Unknown"} on {new Date(exp.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                   );
@@ -454,7 +476,7 @@ export default function Dashboard({
           <li>
             <a
               href="#home"
-              className={`nav-btn ${tab === "HOME" ? "active" : ""}`}
+              className={`av-btn ${tab === "HOME" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("HOME"); }}
               aria-current={tab === "HOME" ? "page" : undefined}
             >
@@ -469,7 +491,7 @@ export default function Dashboard({
           <li>
             <a
               href="#chores"
-              className={`nav-btn ${tab === "CHORES" ? "active" : ""}`}
+              className={`av-btn ${tab === "CHORES" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("CHORES"); }}
               aria-current={tab === "CHORES" ? "page" : undefined}
             >
@@ -484,7 +506,7 @@ export default function Dashboard({
           <li>
             <a
               href="#todos"
-              className={`nav-btn ${tab === "TODOS" ? "active" : ""}`}
+              className={`av-btn ${tab === "TODOS" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("TODOS"); }}
               aria-current={tab === "TODOS" ? "page" : undefined}
             >
@@ -684,3 +706,9 @@ export default function Dashboard({
     </>
   );
 }
+
+
+
+
+
+
