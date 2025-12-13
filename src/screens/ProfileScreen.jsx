@@ -117,7 +117,25 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
 
   function regenerateInvite() {
     if (!house) return;
-    actions.regenerateInvite(me.id, house.id);
+    setHouseSaving(true);
+    setHouseError("");
+    fetch("/api/wp-houses", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ id: house.id, regenInvite: true })
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data?.error || data?.message || "Failed to regenerate invite");
+        const latestCode =
+          data?.house?.invite_code ||
+          data?.house?.inviteCode ||
+          data?.invite_code ||
+          data?.inviteCode;
+        actions.regenerateInvite(me.id, house.id, latestCode);
+      })
+      .catch(err => setHouseError(err?.message || "Could not regenerate invite code"))
+      .finally(() => setHouseSaving(false));
   }
 
   function copyInvite() {
@@ -338,7 +356,9 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
                 <span style={{ fontFamily: "monospace" }}>{house.inviteCode}</span>
                 <button className="btn ghost small" onClick={copyInvite}>{copied ? "Copied" : "Copy"}</button>
                 {isAdmin && (
-                  <button className="btn ghost small" onClick={regenerateInvite}>Regenerate</button>
+                  <button className="btn ghost small" onClick={regenerateInvite} disabled={houseSaving}>
+                    {houseSaving ? "Working..." : "Regenerate"}
+                  </button>
                 )}
               </div>
               <div className="small" style={{ color: "var(--text-muted)" }}>Share this code to let roommates join.</div>
