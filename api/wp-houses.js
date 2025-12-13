@@ -83,10 +83,11 @@ export default async function handler(req, res) {
     // Add/remove member via query param mode
     if (req.method === "PUT") {
       const { houseId, userId, action } = req.body || {};
-      if (!houseId || !userId || !action) return res.status(400).json({ error: "houseId, userId, action required" });
+      if (!houseId || !action) return res.status(400).json({ error: "houseId and action required" });
       const memberUrl = `${endpoint}/${houseId}/members`;
       const method = action === "remove" ? "DELETE" : "POST";
-      const body = JSON.stringify({ user_id: userId });
+      const payload = userId ? { user_id: userId } : {};
+      const body = JSON.stringify(payload);
       const resp = await fetchWithFallback(memberUrl, {
         method,
         headers: { Authorization: authHeader, "Content-Type": "application/json" },
