@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import AuthScreen from "./screens/AuthScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import Dashboard from "./screens/Dashboard";
@@ -67,6 +67,7 @@ export default function App() {
   const houseNotes = getHouseNotes(state, me);
   const todoLists = getTodoLists(state, me);
   const houseExpenses = getHouseExpenses(state, me);
+  const remoteSyncRef = useRef(null);
 
   const actions = useMemo(() => ({
     login: (email, profile) => {
@@ -110,6 +111,23 @@ export default function App() {
     updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch }),
     syncRemoteHouses: (houses) => dispatch({ type: "SYNC_REMOTE_HOUSES", houses })
   }), [dispatch, state]);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    if (!token || !actions?.syncRemoteHouses) return;
+    const key = `${token}:${me?.id || "anon"}`;
+    if (remoteSyncRef.current === key) return;
+    remoteSyncRef.current = key;
+    fetch("/api/wp-houses", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => []);
+        if (!resp.ok || !Array.isArray(data)) return;
+        actions.syncRemoteHouses(data);
+      })
+      .catch(() => {});
+  }, [actions?.syncRemoteHouses, me?.id]);
 
   return (
     <div className="app-shell">

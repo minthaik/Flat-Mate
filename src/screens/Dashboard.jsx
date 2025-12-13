@@ -476,7 +476,7 @@ export default function Dashboard({
           <li>
             <a
               href="#home"
-              className={`av-btn ${tab === "HOME" ? "active" : ""}`}
+              className={`nav-btn ${tab === "HOME" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("HOME"); }}
               aria-current={tab === "HOME" ? "page" : undefined}
             >
@@ -491,7 +491,7 @@ export default function Dashboard({
           <li>
             <a
               href="#chores"
-              className={`av-btn ${tab === "CHORES" ? "active" : ""}`}
+              className={`nav-btn ${tab === "CHORES" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("CHORES"); }}
               aria-current={tab === "CHORES" ? "page" : undefined}
             >
@@ -506,7 +506,7 @@ export default function Dashboard({
           <li>
             <a
               href="#todos"
-              className={`av-btn ${tab === "TODOS" ? "active" : ""}`}
+              className={`nav-btn ${tab === "TODOS" ? "active" : ""}`}
               onClick={(e) => { e.preventDefault(); setTab("TODOS"); }}
               aria-current={tab === "TODOS" ? "page" : undefined}
             >
@@ -521,7 +521,7 @@ export default function Dashboard({
           <li>
             <a
               href="#more"
-              className="nav-btn"
+              className="nnav-btn"
               onClick={(e) => { e.preventDefault(); setMoreOpen(true); }}
             >
               <span className="nav-icon" aria-hidden="true">
