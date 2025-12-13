@@ -111,8 +111,16 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
     if (!window.confirm("Leave this house? You will lose access until an admin re-invites you.")) return;
     setHouseSaving(true);
     setHouseError("");
+    const fallbackWp =
+      me.wpId ||
+      me.wpUserId ||
+      houseUsers.find(u => (u.email && me.email && u.email.toLowerCase() === me.email.toLowerCase()) || u.id === me.id)?.wpId ||
+      null;
     const payload = { houseId: house.id, action: "remove" };
-    if (me.wpId) payload.userId = me.wpId;
+    if (fallbackWp) {
+      const parsed = Number(fallbackWp);
+      if (!Number.isNaN(parsed)) payload.userId = parsed;
+    }
     fetch("/api/wp-houses", {
       method: "PUT",
       headers: { "Content-Type": "application/json", ...authHeaders },
