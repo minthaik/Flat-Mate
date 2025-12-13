@@ -69,8 +69,14 @@ export default function App() {
   const houseExpenses = getHouseExpenses(state, me);
 
   const actions = useMemo(() => ({
-    login: (email) => dispatch({ type: "LOGIN", email }),
-    signup: (name, email) => dispatch({ type: "SIGNUP", name, email }),
+    login: (email, profile) => {
+      const normalized = String(email || "").toLowerCase().trim();
+      const exists = state?.db?.users?.some(u => u.email?.toLowerCase() === normalized) ?? false;
+      if (!exists) return false;
+      dispatch({ type: "LOGIN", email, profile });
+      return true;
+    },
+    signup: (name, email, profile) => dispatch({ type: "SIGNUP", name, email, profile }),
     logout: () => dispatch({ type: "LOGOUT" }),
     createHouse: (payload) => dispatch({ type: "CREATE_HOUSE", payload }),
     joinHouse: (payload) => dispatch({ type: "JOIN_HOUSE", payload }),
@@ -102,7 +108,7 @@ export default function App() {
     checkDndExpiry: () => dispatch({ type: "CHECK_DND_EXPIRY" }),
     dismissToast: () => dispatch({ type: "DISMISS_TOAST" }),
     updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch })
-  }), [dispatch]);
+  }), [dispatch, state]);
 
   return (
     <div className="app-shell">

@@ -149,6 +149,62 @@ class Flatmate_API_Plugin {
         return strtoupper(wp_generate_password(8, false, false));
     }
 
+    private function get_house_members($house_id) {
+        global $wpdb;
+        $members_table = $this->tables['members'];
+        $users_table = $wpdb->users;
+        $sql = $wpdb->prepare("
+            SELECT m.user_id, m.role, m.status, u.display_name, u.user_email
+            FROM {$members_table} m
+            LEFT JOIN {$users_table} u ON u.ID = m.user_id
+            WHERE m.house_id=%d
+            ORDER BY (m.role='admin') DESC, u.display_name ASC
+        ", $house_id);
+        $rows = $wpdb->get_results($sql, ARRAY_A);
+        if (!$rows) {
+            return [];
+        }
+        return array_map(function($row) {
+            $role = $row['role'] ?: 'member';
+            return [
+                'user_id'   => intval($row['user_id']),
+                'wp_user_id'=> intval($row['user_id']),
+                'role'      => $role,
+                'status'    => $row['status'] ?: 'HOME',
+                'name'      => $row['display_name'] ?: ($row['user_email'] ?: 'Member'),
+                'email'     => $row['user_email'],
+                'is_admin'  => $role === 'admin',
+            ];
+        }, $rows);
+    }
+
+    private function format_house($house, $include_members = true) {
+        if (!$house) {
+            return null;
+        }
+        $house_arr = is_array($house) ? $house : (array) $house;
+        $house_id = intval($house_arr['id']);
+        $data = [
+            'id'          => $house_id,
+            'name'        => $house_arr['name'],
+            'invite_code' => $house_arr['invite_code'],
+            'currency'    => $house_arr['currency'],
+            'created_by'  => intval($house_arr['created_by']),
+        ];
+        if ($include_members) {
+            $members = $this->get_house_members($house_id);
+            $data['members'] = $members;
+            foreach ($members as $member) {
+                if (!empty($member['is_admin'])) {
+                    $data['admin_member'] = $member;
+                    $data['admin_user_id'] = $member['user_id'];
+                    break;
+                }
+            }
+        }
+        return $data;
+    }
+
     public function register_routes() {
         $ns = 'flatmate/v1';
 
@@ -322,7 +378,9 @@ class Flatmate_API_Plugin {
         if (empty($ids)) return [];
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
         $houses = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$this->tables['houses']} WHERE id IN ($placeholders)", $ids), ARRAY_A);
-        return $houses;
+        return array_map(function($house) {
+            return $this->format_house($house);
+        }, $houses);
     }
 
     public function create_house($req) {
@@ -348,7 +406,8 @@ class Flatmate_API_Plugin {
             'role'     => 'admin',
             'status'   => 'HOME',
         ], ['%d','%d','%s','%s']);
-        return ['id' => $house_id, 'name' => $name, 'invite_code' => $invite, 'currency' => $currency];
+        $house = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['houses']} WHERE id=%d", $house_id), ARRAY_A);
+        return $this->format_house($house);
     }
 
     public function update_house($req) {
@@ -372,12 +431,7 @@ class Flatmate_API_Plugin {
       $house = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['houses']} WHERE id=%d", $house_id), ARRAY_A);
       if ($house) {
         return [
-          'house' => [
-            'id' => (int)$house['id'],
-            'name' => $house['name'],
-            'invite_code' => $house['invite_code'],
-            'currency' => $house['currency']
-          ]
+          'house' => $this->format_house($house)
         ];
       }
       return ['ok' => true];
@@ -409,7 +463,7 @@ class Flatmate_API_Plugin {
             'role'     => 'member',
             'status'   => 'HOME',
         ], ['%d','%d','%s','%s']);
-        return ['ok' => true];
+        return ['ok' => true, 'members' => $this->get_house_members($house_id)];
     }
 
     public function join_house($req) {
@@ -428,7 +482,7 @@ class Flatmate_API_Plugin {
         ], ['%d','%d','%s','%s']);
         return [
             'joined' => true,
-            'house'  => $house,
+            'house'  => $this->format_house($house),
         ];
     }
 
@@ -440,7 +494,7 @@ class Flatmate_API_Plugin {
         $user_id = intval($req['user_id']);
         if (!$user_id) return new WP_Error('flatmate_invalid', 'user_id required', ['status' => 400]);
         $wpdb->delete($this->tables['members'], ['house_id' => $house_id, 'user_id' => $user_id], ['%d','%d']);
-        return ['ok' => true];
+        return ['ok' => true, 'members' => $this->get_house_members($house_id)];
     }
 
     /* Notes */

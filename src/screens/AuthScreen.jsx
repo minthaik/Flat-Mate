@@ -33,9 +33,10 @@ export default function AuthScreen({ actions }) {
       // map to existing demo user or create one if needed
       const email = meData?.email || `${data.user_nicename || username}@unknown`;
       const name = meData?.name || data.user_display_name || data.user_nicename || username;
-      const existing = actions?.login ? actions.login(email) : null;
+      const profile = { name, wpId: meData?.id || data?.user?.id || data?.user_id };
+      const existing = actions?.login ? actions.login(email, profile) : false;
       if (!existing && actions?.signup) {
-        actions.signup(name, email);
+        actions.signup(name, email, profile);
       }
     } catch (err) {
       setError(err.message || "Login failed");
@@ -80,11 +81,12 @@ export default function AuthScreen({ actions }) {
         data?.user?.name ||
         username;
 
+      const profile = { name: displayName, wpId: data?.user?.id || meData?.id };
       if (actions?.signup) {
-        actions.signup(displayName, finalEmail);
+        actions.signup(displayName, finalEmail, profile);
       }
       if (actions?.login) {
-        actions.login(finalEmail);
+        actions.login(finalEmail, profile);
       }
     } catch (err) {
       setError(err.message || "Signup failed");
