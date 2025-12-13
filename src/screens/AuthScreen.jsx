@@ -81,12 +81,12 @@ export default function AuthScreen({ actions }) {
         data?.user?.name ||
         username;
 
-      const profile = { name: displayName, wpId: data?.user?.id || meData?.id };
+      const nextProfile = { name: displayName, wpId: profile?.id || data?.user?.id || null };
       if (actions?.signup) {
-        actions.signup(displayName, finalEmail, profile);
+        actions.signup(displayName, finalEmail, nextProfile);
       }
       if (actions?.login) {
-        actions.login(finalEmail, profile);
+        actions.login(finalEmail, nextProfile);
       }
     } catch (err) {
       setError(err.message || "Signup failed");
