@@ -491,9 +491,19 @@ class Flatmate_API_Plugin {
         $house_id = intval($req['id']);
         $uid = $this->require_membership($house_id);
         if (is_wp_error($uid)) return $uid;
-        $user_id = intval($req['user_id']);
-        if (!$user_id) return new WP_Error('flatmate_invalid', 'user_id required', ['status' => 400]);
+        $user_id = intval($req['user_id'] ?: 0);
+        if (!$user_id) {
+            $user_id = $uid;
+        }
         $wpdb->delete($this->tables['members'], ['house_id' => $house_id, 'user_id' => $user_id], ['%d','%d']);
+        $member_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->tables['members']} WHERE house_id=%d", $house_id));
+        if (intval($member_count) === 0) {
+            $wpdb->delete($this->tables['houses'], ['id' => $house_id], ['%d']);
+            $wpdb->delete($this->tables['notes'], ['house_id' => $house_id], ['%d']);
+            $wpdb->delete($this->tables['chores'], ['house_id' => $house_id], ['%d']);
+            $wpdb->delete($this->tables['expenses'], ['house_id' => $house_id], ['%d']);
+            return ['ok' => true, 'members' => [], 'house_deleted' => true];
+        }
         return ['ok' => true, 'members' => $this->get_house_members($house_id)];
     }
 

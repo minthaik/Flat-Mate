@@ -107,7 +107,26 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   }
 
   function leaveHouse() {
-    actions.leaveHouse(me.id);
+    if (!house || !me) return;
+    if (!window.confirm("Leave this house? You will lose access until an admin re-invites you.")) return;
+    setHouseSaving(true);
+    setHouseError("");
+    const payload = { houseId: house.id, action: "remove" };
+    if (me.wpId) payload.userId = me.wpId;
+    fetch("/api/wp-houses", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify(payload)
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data?.error || data?.message || "Failed to leave house");
+        actions.leaveHouse(me.id);
+      })
+      .catch(err => {
+        setHouseError(err?.message || "Could not leave house");
+      })
+      .finally(() => setHouseSaving(false));
   }
 
   function transferAdmin() {

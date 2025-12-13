@@ -417,7 +417,7 @@ export function reducer(state, action) {
         }
       });
       if (remoteMap.size === 0) return state;
-      const updatedHouses = state.db.houses.map(h => {
+      let updatedHouses = state.db.houses.map(h => {
         if (remoteMap.has(h.id)) {
           return remoteMap.get(h.id);
         }
@@ -430,6 +430,7 @@ export function reducer(state, action) {
           updatedHouses.push(house);
         }
       });
+      updatedHouses = updatedHouses.filter(h => remoteMap.has(h.id) || (h.memberIds || []).length > 0);
       const remoteHouse = Array.from(remoteMap.values()).find(h => h.memberIds.includes(meId));
       const currentUser = users.find(u => u.id === meId) || state.db.users.find(u => u.id === meId);
       const nextHouseId = remoteHouse ? remoteHouse.id : currentUser?.houseId || null;
@@ -575,12 +576,13 @@ export function reducer(state, action) {
       const users = state.db.users.map(u =>
         u.id === userId ? { ...u, houseId: null, status: "HOME", dndUntil: null } : u
       );
-      const houses = state.db.houses.map(h => {
+      let houses = state.db.houses.map(h => {
         if (!h.memberIds.includes(userId)) return h;
         const memberIds = h.memberIds.filter(id => id !== userId);
         const adminId = h.adminId === userId ? pickAdmin(memberIds, null) : h.adminId;
         return { ...h, memberIds, adminId };
       });
+      houses = houses.filter(h => (h.memberIds || []).length > 0);
       return toast({ ...state, db: { ...state.db, users, houses }, view: "ONBOARDING" }, "Left house.");
     }
 
