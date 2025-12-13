@@ -21,6 +21,16 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   const [houseName, setHouseName] = useState("");
   const [avatarPreset, setAvatarPreset] = useState(DEFAULT_PRESET_ID);
   const [copied, setCopied] = useState(false);
+  const [paypal, setPaypal] = useState("");
+  const [venmo, setVenmo] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [houseCurrency, setHouseCurrency] = useState("USD");
+  const [houseError, setHouseError] = useState("");
+  const [houseSaving, setHouseSaving] = useState(false);
+
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
   useEffect(() => {
     if (!me) return;
@@ -35,7 +45,49 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
     const firstOther = houseUsers.find(u => u.id !== me.id);
     setTransferTo(firstOther?.id || "");
     setHouseName(house?.name || "");
+    setPaypal(me.paypal || "");
+    setVenmo(me.venmo || "");
+    setPhone(me.phone || "");
+    setHouseCurrency(house?.currency || "USD");
   }, [me, houseUsers, house]);
+
+  useEffect(() => {
+    if (!me) return;
+    const baseName = me.name || "";
+    const baseTagline = me.tagline || "";
+    const basePaypal = me.paypal || "";
+    const baseVenmo = me.venmo || "";
+    const basePhone = me.phone || "";
+    const baseHouseCurrency = house?.currency || "USD";
+    const baseAvatarPreset = me.avatarPreset || DEFAULT_PRESET_ID;
+    const baseAvatarColor = me.avatarColor || PRESETS.find(p => p.id === baseAvatarPreset)?.accent || "#7ea0ff";
+    const isDirty =
+      name.trim() !== baseName ||
+      tagline.trim() !== baseTagline ||
+      paypal.trim() !== basePaypal ||
+      venmo.trim() !== baseVenmo ||
+      phone.trim() !== basePhone ||
+      avatarPreset !== baseAvatarPreset ||
+      avatarColor !== baseAvatarColor ||
+      notifyPush !== (me.notifications?.push ?? true) ||
+      notifyEmail !== (me.notifications?.email ?? false) ||
+      (houseCurrency || "USD").toUpperCase() !== (baseHouseCurrency || "USD").toUpperCase();
+    setDirty(isDirty);
+  }, [name, tagline, paypal, venmo, phone, avatarPreset, avatarColor, notifyPush, notifyEmail, houseCurrency, me, house]);
+
+  useEffect(() => {
+    function handleBeforeUnload(e) {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    if (dirty) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [dirty]);
 
   if (!me) {
     return <div className="panel"><div className="small">Please sign in to edit your profile.</div></div>;
@@ -47,7 +99,10 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
       tagline: tagline.trim(),
       avatarColor,
       avatarPreset,
-      notifications: { push: notifyPush, email: notifyEmail }
+      notifications: { push: notifyPush, email: notifyEmail },
+      paypal: paypal.trim(),
+      venmo: venmo.trim(),
+      phone: phone.trim()
     });
   }
 
@@ -77,16 +132,63 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
     if (!house) return;
     const clean = houseName.trim();
     if (!clean) return;
-    actions.renameHouse(me.id, house.id, clean);
+    setHouseSaving(true);
+    setHouseError("");
+    fetch("/api/wp-houses", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ id: house.id, name: clean })
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data?.error || data?.message || "Failed to rename house");
+        actions.renameHouse(me.id, house.id, clean);
+      })
+      .catch(err => setHouseError(err?.message || "Could not rename house"))
+      .finally(() => setHouseSaving(false));
+  }
+
+  function updateCurrency() {
+    if (!house) return;
+    const clean = (houseCurrency || "USD").toUpperCase();
+    setHouseSaving(true);
+    setHouseError("");
+    fetch("/api/wp-houses", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify({ id: house.id, currency: clean })
+    })
+      .then(async resp => {
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data?.error || data?.message || "Failed to update currency");
+        actions.setHouseCurrency?.(me.id, house.id, clean);
+      })
+      .catch(err => setHouseError(err?.message || "Could not update currency"))
+      .finally(() => setHouseSaving(false));
   }
 
   const isAdmin = house?.adminId === me.id;
   const canSaveName = house && houseName.trim() && houseName.trim() !== house.name;
+  const canSaveCurrency = house && (houseCurrency || "USD").toUpperCase() !== (house.currency || "USD");
 
   return (
     <div className="stack">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div className="section-title">Profile</div>
+        {actions?.onBack && (
+          <button
+            className="btn ghost small"
+            onClick={() => {
+              if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+              actions.onBack();
+            }}
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            <span>Back</span>
+          </button>
+        )}
+      </div>
       <div className="panel">
-        <div className="panel-title">Profile</div>
         <div className="stack">
         <div className="row" style={{ alignItems: "center", gap: 12 }}>
           <div
@@ -129,6 +231,16 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
             <input className="input" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Add a short status" />
           </div>
 
+          <div>
+            <div className="small">Phone</div>
+            <input
+              className="input"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+1 555 123 4567"
+            />
+          </div>
+
           <div className="card">
             <div className="panel-title">Avatar</div>
             <div className="stack">
@@ -166,6 +278,31 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
             </div>
           </div>
 
+          <div className="card">
+            <div className="panel-title">Payment handles</div>
+            <div className="stack" style={{ gap: "var(--space-3)" }}>
+              <div>
+                <div className="small">PayPal.me link</div>
+                <input
+                  className="input"
+                  value={paypal}
+                  onChange={e => setPaypal(e.target.value)}
+                  placeholder="https://paypal.me/yourname"
+                />
+              </div>
+              <div>
+                <div className="small">Venmo username</div>
+                <input
+                  className="input"
+                  value={venmo}
+                  onChange={e => setVenmo(e.target.value)}
+                  placeholder="@yourname"
+                />
+              </div>
+              <div className="small muted">Shared with roommates for direct payments. Funds flow via PayPal/Venmo; this app does not handle money.</div>
+            </div>
+          </div>
+
           <div className="row" style={{ justifyContent: "flex-end" }}>
             <button className="btn" onClick={saveProfile}>Save</button>
           </div>
@@ -190,7 +327,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
               {isAdmin && (
                 <div className="row" style={{ gap: 8 }}>
                   <input className="input" value={houseName} onChange={e => setHouseName(e.target.value)} placeholder="Rename house" />
-                  <button className="btn secondary" onClick={renameHouse} disabled={!canSaveName}>Save</button>
+                  <button className="btn secondary" onClick={renameHouse} disabled={!canSaveName || houseSaving}>Save</button>
                 </div>
               )}
             </div>
@@ -207,7 +344,37 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
               <div className="small" style={{ color: "var(--text-muted)" }}>Share this code to let roommates join.</div>
             </div>
 
-            <div className="divider" />
+            {isAdmin && (
+              <div className="stack">
+                <div className="small" style={{ fontWeight: 600 }}>Currency</div>
+                <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    className="input"
+                    list="currency-options"
+                    value={houseCurrency}
+                    onChange={e => setHouseCurrency(e.target.value.toUpperCase())}
+                    placeholder="USD"
+                    style={{ width: 160 }}
+                  />
+                  <datalist id="currency-options">
+                    {["USD","EUR","GBP","AUD","CAD","JPY","INR","CNY","KRW","SGD","NZD","CHF","SEK","NOK","DKK","HKD","MXN","BRL","ZAR","TRY","IDR","PHP","TWD","THB","PLN","AED"].map(code => (
+                      <option key={code} value={code} />
+                    ))}
+                  </datalist>
+                  <button
+                    className="btn ghost small"
+                    style={{ minWidth: 160, height: 38 }}
+                    onClick={updateCurrency}
+                    disabled={!canSaveCurrency || houseSaving}
+                  >
+                    Save currency
+                  </button>
+                </div>
+                <div className="small muted">Use a 3-letter code (ISO). Applies to amounts shown in Finance.</div>
+              </div>
+            )}
+
+            {houseError && <div className="small" style={{ color: "var(--md-sys-color-danger)" }}>{houseError}</div>}
 
             <div className="stack">
               <div className="kv">

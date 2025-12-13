@@ -46,14 +46,17 @@ function normalizeDb(db) {
       avatarPreset: u.avatarPreset || null,
       timezone: DEVICE_TIMEZONE,
       notifications,
-      photo: u.photo || null
+      photo: u.photo || null,
+      phone: u.phone || "",
+      paypal: u.paypal || "",
+      venmo: u.venmo || ""
     };
   });
   const normHouses = (db?.houses ?? SEED_DB.houses).map(h => {
     const adminId = h.adminId || pickAdmin(h.memberIds, null);
     const inviteCode = h.inviteCode || genInviteCode(existingCodes);
     existingCodes.add(inviteCode);
-    return { ...h, adminId, inviteCode };
+    return { ...h, adminId, inviteCode, currency: h.currency || "USD" };
   });
   return {
     ...SEED_DB,
@@ -63,7 +66,8 @@ function normalizeDb(db) {
     guests: Array.isArray(db?.guests) ? db.guests : [],
     chores: Array.isArray(db?.chores) ? db.chores : [],
     todoLists: normTodoLists,
-    notes: normNotes
+    notes: normNotes,
+    expenses: Array.isArray(db?.expenses) ? db.expenses : []
   };
 }
 
@@ -144,14 +148,24 @@ export function reducer(state, action) {
       return { ...state, currentUserId: null, view: "AUTH" };
 
     case "CREATE_HOUSE": {
-      const name = String(action.name || "").trim();
+      const payload = action.payload || {};
+      const name = String(payload.name || action.name || "").trim();
       if (!name) return toast(state, "House name required.");
       const meId = state.currentUserId;
       if (!meId) return state;
 
-      const houseId = uid("house");
-      const inviteCode = genInviteCode(new Set(state.db.houses.map(h => h.inviteCode)));
-      const newHouse = { id: houseId, name, inviteCode, memberIds: [meId], adminId: meId };
+      const existingCodes = new Set(state.db.houses.map(h => h.inviteCode));
+      const houseId = payload.id || payload.houseId || uid("house");
+      const inviteCode = payload.inviteCode || genInviteCode(existingCodes);
+      const currency = payload.currency || "USD";
+      const newHouse = {
+        id: houseId,
+        name,
+        inviteCode,
+        currency,
+        memberIds: [meId],
+        adminId: meId
+      };
 
       const users = state.db.users.map(u =>
         u.id === meId ? { ...u, houseId } : u
@@ -165,19 +179,34 @@ export function reducer(state, action) {
     }
 
     case "JOIN_HOUSE": {
-      const code = String(action.code || "").trim();
+      const payload = action.payload || {};
+      const code = String(payload.inviteCode || action.code || "").trim();
       const meId = state.currentUserId;
       if (!meId) return state;
 
-      const house = state.db.houses.find(h => h.inviteCode === code);
-      if (!house) return toast(state, "Invalid invite code.");
+      let house = null;
+      if (payload.house) {
+        house = {
+          id: payload.house.id || payload.house.houseId,
+          name: payload.house.name,
+          inviteCode: payload.house.invite_code || payload.house.inviteCode || code,
+          currency: payload.house.currency || "USD",
+          memberIds: []
+        };
+      } else {
+        house = state.db.houses.find(h => h.inviteCode === code);
+      }
+      if (!house || !house.id) return toast(state, "Invalid invite code.");
 
+      const existing = state.db.houses.find(h => h.id === house.id);
       const houses = state.db.houses.map(h => {
         if (h.id !== house.id) return h;
-        const memberIds = Array.from(new Set([...h.memberIds, meId]));
+        const memberIds = Array.from(new Set([...(h.memberIds || []), meId]));
         const adminId = h.adminId || pickAdmin(memberIds, null);
         return { ...h, memberIds, adminId };
       });
+
+      const mergedHouses = existing ? houses : [...state.db.houses, { ...house, memberIds: [meId], adminId: house.adminId || meId }];
 
       const users = state.db.users.map(u =>
         u.id === meId ? { ...u, houseId: house.id } : u
@@ -185,7 +214,7 @@ export function reducer(state, action) {
 
       return toast({
         ...state,
-        db: { ...state.db, houses, users },
+        db: { ...state.db, houses: mergedHouses, users },
         view: "DASHBOARD"
       }, "Joined house.");
     }
@@ -295,15 +324,19 @@ export function reducer(state, action) {
           push: patch.notifications?.push ?? u.notifications?.push ?? true,
           email: patch.notifications?.email ?? u.notifications?.email ?? false
         };
-        return {
-          ...u,
+          return {
+            ...u,
           name: patch.name ?? u.name,
           email: patch.email ?? u.email,
           tagline: patch.tagline ?? u.tagline ?? "",
           avatarColor: patch.avatarColor ?? u.avatarColor ?? "#7ea0ff",
+          avatarPreset: patch.avatarPreset === undefined ? u.avatarPreset ?? null : patch.avatarPreset,
           timezone: u.timezone ?? DEVICE_TIMEZONE,
           notifications,
-          photo: patch.photo === undefined ? u.photo ?? null : patch.photo
+          photo: patch.photo === undefined ? u.photo ?? null : patch.photo,
+          phone: patch.phone === undefined ? u.phone ?? "" : patch.phone,
+          paypal: patch.paypal === undefined ? u.paypal ?? "" : patch.paypal,
+          venmo: patch.venmo === undefined ? u.venmo ?? "" : patch.venmo
         };
       });
       return toast({ ...state, db: { ...state.db, users } }, "Profile updated.");
@@ -341,13 +374,13 @@ export function reducer(state, action) {
     }
 
     case "REGENERATE_INVITE": {
-      const { userId, houseId } = action;
+      const { userId, houseId, inviteCode: providedCode } = action;
       if (!userId || !houseId) return state;
       const house = state.db.houses.find(h => h.id === houseId);
       if (!house) return state;
       if (house.adminId !== userId) return toast(state, "Only the house admin can regenerate the code.");
       const existing = new Set(state.db.houses.filter(h => h.id !== houseId).map(h => h.inviteCode));
-      const inviteCode = genInviteCode(existing);
+      const inviteCode = (providedCode || "").trim().toUpperCase() || genInviteCode(existing);
       const houses = state.db.houses.map(h => h.id === houseId ? { ...h, inviteCode } : h);
       return toast({ ...state, db: { ...state.db, houses } }, "Invite code regenerated.");
     }
@@ -361,6 +394,18 @@ export function reducer(state, action) {
       if (house.adminId !== userId) return toast(state, "Only the house admin can rename the house.");
       const houses = state.db.houses.map(h => h.id === houseId ? { ...h, name: cleanName } : h);
       return toast({ ...state, db: { ...state.db, houses } }, "House renamed.");
+    }
+
+    case "SET_HOUSE_CURRENCY": {
+      const { userId, houseId, currency } = action;
+      const clean = String(currency || "").trim().toUpperCase();
+      if (!userId || !houseId || !clean) return state;
+      const house = state.db.houses.find(h => h.id === houseId);
+      if (!house) return state;
+      if (house.adminId !== userId) return toast(state, "Only the house admin can change currency.");
+      if (house.currency === clean) return state;
+      const houses = state.db.houses.map(h => h.id === houseId ? { ...h, currency: clean } : h);
+      return toast({ ...state, db: { ...state.db, houses } }, "Currency updated.");
     }
 
     case "ADD_TODO_LIST": {
@@ -478,6 +523,20 @@ export function reducer(state, action) {
         return { ...u, status: "HOME", dndUntil: null };
       });
       return { ...state, db: { ...state.db, users } };
+    }
+
+    case "ADD_EXPENSE": {
+      const { expense } = action;
+      if (!expense?.id || !expense?.title || !expense?.amount) return state;
+      const expenses = [...(state.db.expenses || []), expense];
+      return toast({ ...state, db: { ...state.db, expenses } }, "Expense added.");
+    }
+
+    case "DELETE_EXPENSE": {
+      const { expenseId } = action;
+      if (!expenseId) return state;
+      const expenses = (state.db.expenses || []).filter(e => e.id !== expenseId);
+      return toast({ ...state, db: { ...state.db, expenses } }, "Expense removed.");
     }
 
     case "DISMISS_TOAST":

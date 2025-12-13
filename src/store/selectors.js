@@ -36,3 +36,8 @@ export function getTodoLists(state, me) {
     return false;
   });
 }
+
+export function getHouseExpenses(state, me) {
+  if (!me?.houseId) return [];
+  return (state.db.expenses || []).filter(e => e.houseId === me.houseId);
+}

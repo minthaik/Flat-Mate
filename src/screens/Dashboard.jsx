@@ -3,24 +3,55 @@ import ChoresView from "../views/ChoresView";
 import { uid, fromDateInputValue, toDateInputValue } from "../store/utils";
 import ProfileScreen from "./ProfileScreen";
 import TodosScreen from "./TodosScreen";
+import SupportScreen from "./SupportScreen";
+import RoommatesScreen from "./RoommatesScreen";
+import FinanceScreen from "./FinanceScreen";
+import NotesScreen from "./NotesScreen";
+import GuestsScreen from "./GuestsScreen";
 
-export default function Dashboard({ me, house, houseUsers, houseChores, houseGuests, houseNotes = [], todoLists, actions }) {
-  const [tab, setTab] = useState("HOME");
-  const [guestName, setGuestName] = useState("");
-  const [guestDate, setGuestDate] = useState("");
-  const [guestTime, setGuestTime] = useState("");
-  const [guestNote, setGuestNote] = useState("");
-  const [guestModalOpen, setGuestModalOpen] = useState(false);
+const AVATAR_PRESETS = [
+  { id: "happy", src: "/avatars/avatar-happy.svg", accent: "#7ea0ff" },
+  { id: "cool", src: "/avatars/avatar-cool.svg", accent: "#31c48d" },
+  { id: "cat", src: "/avatars/avatar-cat.svg", accent: "#f5c44f" },
+  { id: "dog", src: "/avatars/avatar-dog.svg", accent: "#ff7b7b" }
+];
+
+function OverviewCard({ title, actionLabel, onAction, children, panelStyle }) {
+  return (
+    <div className="panel" style={{ height: "100%", ...(panelStyle || {}) }}>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div className="panel-title" style={{ margin: 0 }}>{title}</div>
+        {onAction && (
+          <button className="btn ghost small" onClick={onAction}>
+            <span>{actionLabel || "View all"}</span>
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function Dashboard({
+  me,
+  house,
+  houseUsers,
+  houseChores,
+  houseGuests,
+  houseNotes = [],
+  todoLists,
+  houseExpenses = [],
+  actions
+}) {
   const [dndDate, setDndDate] = useState("");
   const [dndTime, setDndTime] = useState("");
   const [dndModalOpen, setDndModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusNote, setStatusNote] = useState("");
   const [pendingStatus, setPendingStatus] = useState(null);
-  const [noteText, setNoteText] = useState("");
-  const [showAllNotes, setShowAllNotes] = useState(false);
-  const [expandedNoteId, setExpandedNoteId] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
+  const [isMoreOpen, setMoreOpen] = useState(false);
+  const [tab, setTab] = useState("HOME");
 
   useEffect(() => {
     const id = setInterval(() => actions.checkDndExpiry(), 60000);
@@ -30,6 +61,14 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   useEffect(() => {
     const id = setInterval(() => setNowTs(Date.now()), 10000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    function handleEsc(e) {
+      if (e.key === "Escape") setMoreOpen(false);
+    }
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
   }, []);
 
   useEffect(() => {
@@ -53,12 +92,21 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     OUT: { icon: "directions_walk", className: "out" },
     DND: { icon: "do_not_disturb_on", className: "dnd" }
   };
+  const avatarPresetSrc = (() => {
+    if (me?.photo) return me.photo;
+    const preset = AVATAR_PRESETS.find(p => p.id === me?.avatarPreset) || AVATAR_PRESETS[0];
+    return preset?.src || "/avatars/avatar-happy.svg";
+  })();
 
   const upcomingGuests = useMemo(() => {
     const list = [...(houseGuests || [])];
     list.sort((a, b) => new Date(a.arrivesAt || 0) - new Date(b.arrivesAt || 0));
     return list;
   }, [houseGuests]);
+  const houseCurrency = (house?.currency || "USD").toUpperCase();
+  const currencySymbols = { USD: "$", EUR: "EUR ", GBP: "GBP ", AUD: "AUD ", CAD: "CAD ", JPY: "JPY " };
+  const currencySymbol = currencySymbols[houseCurrency] || `${houseCurrency} `;
+  const fmtCurrency = (amt) => `${currencySymbol}${Number(amt || 0).toFixed(2)}`;
 
   useEffect(() => {
     setStatusNote(me?.statusNote || "");
@@ -81,63 +129,17 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
     }
   }
 
-  function addGuest() {
-    if (!me?.houseId || !guestName.trim()) return;
-    const datePart = guestDate || toDateInputValue(new Date().toISOString());
-    const timePart = guestTime || "12:00";
-    const iso = new Date(`${datePart}T${timePart}:00`).toISOString();
-    const guest = {
-      id: uid("guest"),
-      houseId: me.houseId,
-      name: guestName.trim(),
-      arrivesAt: iso,
-      note: guestNote.trim(),
-      hostId: me.id
-    };
-    actions.addGuest(guest);
-    setGuestName("");
-    setGuestDate("");
-    setGuestTime("");
-    setGuestNote("");
-    setGuestModalOpen(false);
-  }
-
-  const canAddGuest = guestName.trim().length > 0;
-  const canAddNote = noteText.trim().length > 0 && !!me?.houseId;
-
-  function addNote() {
-    if (!canAddNote) return;
-    const note = {
-      id: uid("note"),
-      houseId: me.houseId,
-      text: noteText.trim(),
-      authorId: me.id,
-      createdAt: new Date().toISOString()
-    };
-    actions.addNote(note);
-    setNoteText("");
-  }
-
   const choreOverview = useMemo(() => {
     const copy = [...(houseChores || [])];
     copy.sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
     return copy.slice(0, 3);
   }, [houseChores]);
 
-  const boardNotes = useMemo(() => {
-    const copy = [...(houseNotes || [])];
-    copy.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    });
-    return copy;
-  }, [houseNotes]);
-  const displayNotes = showAllNotes ? boardNotes : boardNotes.slice(0, 5);
-  const myExistingNote = useMemo(
-    () => boardNotes.find(n => n.authorId === me?.id),
-    [boardNotes, me?.id]
-  );
+  const recentExpenses = useMemo(() => {
+    const list = [...(houseExpenses || [])];
+    list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return list.slice(0, 3);
+  }, [houseExpenses]);
 
   function remainingDnd(u) {
     if (!u || u.status !== "DND" || !u.dndUntil) return null;
@@ -153,9 +155,13 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
   return (
     <>
       {tab === "HOME" && (
-        <>
-          <div className="section-title">My status</div>
-          <div className="panel">
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="section-title">Overview</div>
+
+          <OverviewCard
+            title="My status"
+            panelStyle={{ background: "linear-gradient(135deg, #e6f4ec 0%, #f2fbf6 100%)", border: "1px solid rgba(11,138,59,0.18)" }}
+          >
             <div className="stack">
               <div className="card">
                 <div className="status-row">
@@ -203,174 +209,146 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
                 <div className="small">Let roommates know if you are home, away, or not to be disturbed.</div>
               </div>
             </div>
-          </div>
+          </OverviewCard>
 
-          <div className="section-title">Members Status</div>
-          <div className="panel">
-            {house ? (
-              <div className="stack">
-                {houseUsers.map((u, idx) => {
-                  const isLast = idx === houseUsers.length - 1;
-                  return (
-                    <React.Fragment key={u.id}>
-                      <div className="card">
-                        <div className="kv">
-                          <span className="h2" style={{ margin: 0 }}>{u.name}</span>
-                          <span
-                            className={`pill ${
-                              u.status === "DND"
-                                ? "dnd"
-                                : u.status === "AWAY"
-                                ? "away"
-                                : u.status === "OUT"
-                                ? "out"
-                                : "home"
-                            }`}
-                          >
-                            {u.status === "DND" ? "DND" : (u.status || "HOME")}
-                          </span>
-                        </div>
-                        <div className="small">{u.statusNote || "No status message set"}</div>
-                        {u.status === "DND" && u.dndUntil && (
-                          <div className="small emphasis">
-                            Ends {new Date(u.dndUntil).toLocaleTimeString()} &rarr; <span className="countdown">{remainingDnd(u)}</span>
-                          </div>
-                        )}
-                      </div>
-                      {!isLast && <div className="divider" />}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="small">No members found.</div>
-            )}
-          </div>
-
-          <div className="section-title">House board</div>
-          <div className="panel">
-            <div className="stack">
-              <div className="row" style={{ gap: "8px" }}>
-                <input
-                  className="input"
-                  placeholder="Share a note with your house"
-                  value={noteText}
-                  onChange={e => setNoteText(e.target.value)}
-                  style={{ flex: "1 1 auto", minWidth: 0 }}
-                />
-                <button className="btn secondary small" onClick={addNote} disabled={!canAddNote}>
-                  <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                  <span>{myExistingNote ? "Update" : "Post"}</span>
-                </button>
-              </div>
-              <div className={`list ${showAllNotes ? "notes-list" : ""}`}>
-                {boardNotes.length === 0 && <div className="small">No notes yet.</div>}
-                {displayNotes.map(n => {
-                  const author = houseUsers.find(u => u.id === n.authorId);
-                  const isExpanded = expandedNoteId === n.id;
-                  const accent = author?.avatarColor || "#008000";
-                  const bubbleStyle = {
-                    background: `linear-gradient(135deg, ${accent}1f, ${accent}33)`,
-                    borderColor: `${accent}55`
-                  };
-                  return (
-                    <div
-                      key={n.id}
-                      className={`note-bubble ${isExpanded ? "expanded" : "collapsed"}`}
-                      style={bubbleStyle}
-                      onClick={() => setExpandedNoteId(isExpanded ? null : n.id)}
-                    >
-                      <div className="note-text">{n.text}</div>
-                      <div className="note-meta">
-                        <span className="small">{author?.name || "Unknown"}</span>
-                        <span className="small">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</span>
-                        <div className="row" style={{ gap: 6, marginLeft: "auto" }}>
-                          <button
-                            className="btn ghost small"
-                            onClick={e => {
-                              e.stopPropagation();
-                              actions.updateNote(n.id, { pinned: !n.pinned });
-                            }}
-                          >
-                            {n.pinned ? "Unpin" : "Pin"}
-                          </button>
-                          {author?.id === me?.id && (
-                            <button
-                              className="btn ghost small"
-                              onClick={e => {
-                                e.stopPropagation();
-                                actions.deleteNote(n.id);
-                              }}
+          <div
+            className="grid two"
+            style={{ gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
+          >
+            <OverviewCard
+              title="Members"
+              actionLabel="View status"
+              onAction={() => setTab("ROOMMATES")}
+              panelStyle={{ background: "linear-gradient(135deg, #e8f1fb 0%, #f5f8fd 100%)", border: "1px solid rgba(31,93,168,0.18)" }}
+            >
+              {house ? (
+                <div className="stack">
+                  {houseUsers.map((u, idx) => {
+                    const isLast = idx === houseUsers.length - 1;
+                    return (
+                      <React.Fragment key={u.id}>
+                        <div className="card">
+                          <div className="kv">
+                            <span className="h2" style={{ margin: 0 }}>{u.name}</span>
+                            <span
+                              className={`pill ${
+                                u.status === "DND"
+                                  ? "dnd"
+                                  : u.status === "AWAY"
+                                  ? "away"
+                                  : u.status === "OUT"
+                                  ? "out"
+                                  : "home"
+                              }`}
                             >
-                              Delete
-                            </button>
+                              {u.status === "DND" ? "DND" : (u.status || "HOME")}
+                            </span>
+                          </div>
+                          <div className="small">{u.statusNote || "No status message set"}</div>
+                          {u.status === "DND" && u.dndUntil && (
+                            <div className="small emphasis">
+                              Ends {new Date(u.dndUntil).toLocaleTimeString()} &rarr; <span className="countdown">{remainingDnd(u)}</span>
+                            </div>
                           )}
                         </div>
+                        {!isLast && <div className="divider" />}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="small">No members found.</div>
+              )}
+            </OverviewCard>
+
+            <OverviewCard
+              title="Chores"
+              actionLabel="View all"
+              onAction={() => setTab("CHORES")}
+              panelStyle={{ background: "linear-gradient(135deg, #fff2eb 0%, #fff8f3 100%)", border: "1px solid rgba(199,84,31,0.16)" }}
+            >
+              <div className="stack">
+                {choreOverview.length === 0 && <div className="small">No chores yet.</div>}
+                {choreOverview.map(chore => {
+                  const assignee = houseUsers.find(u => u.id === chore.assigneeId);
+                  return (
+                    <div key={chore.id} className="card">
+                      <div className="kv">
+                        <span className="h2" style={{ margin: 0 }}>{chore.title}</span>
+                        <span className="pill">{assignee?.name || "Unassigned"}</span>
                       </div>
+                      <div className="small">Due {chore.dueAt ? new Date(chore.dueAt).toLocaleDateString() : "-"}</div>
                     </div>
                   );
                 })}
               </div>
-              {boardNotes.length > 5 && (
-                <div className="row" style={{ justifyContent: "flex-end" }}>
-                  <button className="btn ghost" onClick={() => setShowAllNotes(prev => !prev)}>
-                    {showAllNotes ? "Show less" : `Show all (${boardNotes.length})`}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+            </OverviewCard>
 
-          <div className="section-title">Guest status</div>
-          <div className="panel">
-            <div className="stack">
-              <div className="card">
-                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <div className="panel-title" style={{ margin: 0, paddingBottom: 0, borderBottom: "none" }}>Upcoming guests</div>
-                  <button className="btn secondary small" onClick={() => setGuestModalOpen(true)}>
-                    <span className="material-symbols-outlined" aria-hidden="true">add</span>
-                    <span>Schedule Guest</span>
-                  </button>
-                </div>
-                <div className="divider" style={{ marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }} />
-                <div className="list" style={{ marginTop: "var(--space-5)" }}>
-                  {upcomingGuests.length === 0 && <div className="small">No guests scheduled.</div>}
-                  {upcomingGuests.map(g => {
-                    const host = houseUsers.find(u => u.id === g.hostId);
-                    return (
-                      <div key={g.id} className="kv" style={{ alignItems: "flex-start" }}>
+            <OverviewCard
+              title="Upcoming guests"
+              actionLabel="Open"
+              onAction={() => setTab("GUESTS")}
+              panelStyle={{ background: "linear-gradient(135deg, #f3ecff 0%, #faf7ff 100%)", border: "1px solid rgba(143,91,232,0.16)" }}
+            >
+              <div className="stack">
+                {upcomingGuests.length === 0 && <div className="small">No guests scheduled.</div>}
+                {upcomingGuests.slice(0, 3).map(g => {
+                  const host = houseUsers.find(u => u.id === g.hostId);
+                  return (
+                    <div key={g.id} className="card">
+                      <div className="kv" style={{ alignItems: "flex-start" }}>
                         <div className="stack" style={{ gap: "4px" }}>
                           <span className="h3">{g.name}</span>
                           <span className="small">{new Date(g.arrivesAt).toLocaleString()}</span>
                         </div>
                         <span className="small">Host: {host?.name || "Unknown"}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="section-title">Chore overview</div>
-          <div className="panel">
-            <div className="stack">
-              {choreOverview.length === 0 && <div className="small">No chores yet.</div>}
-              {choreOverview.map(chore => {
-                const assignee = houseUsers.find(u => u.id === chore.assigneeId);
-                return (
-                  <div key={chore.id} className="card">
-                    <div className="kv">
-                      <span className="h2" style={{ margin: 0 }}>{chore.title}</span>
-                      <span className="pill">{assignee?.name || "Unassigned"}</span>
                     </div>
-                    <div className="small">Due {chore.dueAt ? new Date(chore.dueAt).toLocaleDateString() : "-"}</div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </OverviewCard>
+
+            <OverviewCard
+              title="House notes"
+              actionLabel="View all"
+              onAction={() => setTab("NOTES")}
+              panelStyle={{ background: "linear-gradient(135deg, #ecf5ff 0%, #f6fffb 100%)", border: "1px solid rgba(15,102,191,0.16)" }}
+            >
+              <div className="stack" style={{ gap: 8 }}>
+                <div className="small">Open the Notes section to view and post house notes.</div>
+                <button className="btn secondary small" onClick={() => setTab("NOTES")}>
+                  Go to Notes
+                </button>
+              </div>
+            </OverviewCard>
+
+            <OverviewCard
+              title="Finance"
+              actionLabel="Open"
+              onAction={() => setTab("FINANCE")}
+              panelStyle={{ background: "linear-gradient(135deg, #e9f6ec 0%, #eef4ff 100%)", border: "1px solid rgba(11,138,59,0.16)" }}
+            >
+              <div className="stack">
+                {recentExpenses.length === 0 && <div className="small muted">No expenses yet.</div>}
+                {recentExpenses.map(exp => {
+                  const payer = houseUsers.find(u => u.id === exp.payerId);
+                  return (
+                    <div key={exp.id} className="card">
+                      <div className="kv">
+                        <span className="h3" style={{ margin: 0 }}>{exp.title}</span>
+                        <span className="pill">{exp.type === "shared" ? "Shared" : "Personal"}</span>
+                      </div>
+                      <div className="small muted" style={{ color: "#f1f5f9" }}>
+                        {exp.category} · {fmtCurrency(exp.amount)} · {payer?.name || "Unknown"} on {new Date(exp.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </OverviewCard>
           </div>
-        </>
+        </div>
       )}
 
       {tab === "CHORES" && (
@@ -380,10 +358,11 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
           houseUsers={houseUsers}
           chores={houseChores}
           actions={actions}
+          onBack={() => setTab("HOME")}
         />
       )}
 
-      {tab === "PROFILE" && (
+            {tab === "PROFILE" && (
         <ProfileScreen
           me={me}
           house={house}
@@ -393,7 +372,9 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             leaveHouse: actions.leaveHouse,
             transferAdmin: actions.transferAdmin,
             regenerateInvite: actions.regenerateInvite,
-            renameHouse: actions.renameHouse
+            renameHouse: actions.renameHouse,
+            setHouseCurrency: actions.setHouseCurrency,
+            onBack: () => setTab("HOME")
           }}
         />
       )}
@@ -411,94 +392,214 @@ export default function Dashboard({ me, house, houseUsers, houseChores, houseGue
             toggleTodoItem: actions.toggleTodoItem,
             deleteTodoItem: actions.deleteTodoItem
           }}
+          onBack={() => setTab("HOME")}
+        />
+      )}
+      {tab === "FINANCE" && (
+        <FinanceScreen
+          me={me}
+          house={house}
+          houseUsers={houseUsers}
+          expenses={houseExpenses}
+          actions={{
+            addExpense: actions.addExpense,
+            deleteExpense: actions.deleteExpense
+          }}
+          onBack={() => setTab("HOME")}
         />
       )}
 
-      <div className="footer-nav">
-        <div className="nav-shell">
-          <button className={`nav-btn ${tab === "HOME" ? "active" : ""}`} onClick={() => setTab("HOME")}>
-            <span className="nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-              </svg>
-            </span>
-            <span className="nav-label">Home</span>
-          </button>
-          <button className={`nav-btn ${tab === "CHORES" ? "active" : ""}`} onClick={() => setTab("CHORES")}>
-            <span className="nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M3 7h2v2H3V7Zm0 4h2v2H3v-2Zm0 4h2v2H3v-2ZM7 7h14v2H7V7Zm0 4h14v2H7v-2Zm0 4h14v2H7v-2Z" />
-              </svg>
-            </span>
-            <span className="nav-label">Chores</span>
-          </button>
-          <button className={`nav-btn ${tab === "TODOS" ? "active" : ""}`} onClick={() => setTab("TODOS")}>
-            <span className="nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M19 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM9 17H7v-2h2v2Zm0-4H7v-2h2v2Zm0-4H7V7h2v2Zm8 8h-6v-2h6v2Zm0-4h-6v-2h6v2Zm0-4h-6V7h6v2Z" />
-              </svg>
-            </span>
-            <span className="nav-label">To-Dos</span>
-          </button>
-          <button className={`nav-btn ${tab === "PROFILE" ? "active" : ""}`} onClick={() => setTab("PROFILE")}>
-            <span className="nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.3 0-7.8 1.7-7.8 4.9V22h15.6v-2.7c0-3.2-4.5-4.9-7.8-4.9Z" />
-              </svg>
-            </span>
-            <span className="nav-label">Profile</span>
-          </button>
-        </div>
-      </div>
+      {tab === "NOTES" && (
+        <NotesScreen
+          me={me}
+          house={house}
+          houseUsers={houseUsers}
+          notes={houseNotes}
+          actions={{
+            addNote: actions.addNote,
+            deleteNote: actions.deleteNote,
+            updateNote: actions.updateNote
+          }}
+          onBack={() => setTab("HOME")}
+        />
+      )}
+      {tab === "ROOMMATES" && (
+        <RoommatesScreen
+          me={me}
+          house={house}
+          houseUsers={houseUsers}
+          onBack={() => setTab("HOME")}
+        />
+      )}
+      {tab === "GUESTS" && (
+        <GuestsScreen
+          me={me}
+          house={house}
+          houseUsers={houseUsers}
+          guests={houseGuests}
+          actions={{ addGuest: actions.addGuest }}
+          onBack={() => setTab("HOME")}
+        />
+      )}
+      {tab === "SUPPORT" && (
+        <SupportScreen
+          me={me}
+          house={house}
+          onBack={() => setTab("HOME")}
+        />
+      )}
 
-      {guestModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <div className="modal-header">
-              <div className="h2">Schedule guest</div>
-              <button className="btn icon-only danger" onClick={() => setGuestModalOpen(false)} aria-label="Close">
-                <span className="material-symbols-outlined">cancel</span>
+      <nav className="footer-nav" aria-label="Primary">
+        <ul className="nav-shell">
+          <li>
+            <a
+              href="#home"
+              className={`nav-btn ${tab === "HOME" ? "active" : ""}`}
+              onClick={(e) => { e.preventDefault(); setTab("HOME"); }}
+              aria-current={tab === "HOME" ? "page" : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+                </svg>
+              </span>
+              <span className="nav-label">Home</span>
+            </a>
+          </li>
+          <li>
+            <a
+              href="#chores"
+              className={`nav-btn ${tab === "CHORES" ? "active" : ""}`}
+              onClick={(e) => { e.preventDefault(); setTab("CHORES"); }}
+              aria-current={tab === "CHORES" ? "page" : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M3 7h2v2H3V7Zm0 4h2v2H3v-2Zm0 4h2v2H3v-2ZM7 7h14v2H7V7Zm0 4h14v2H7v-2Zm0 4h14v2H7v-2Z" />
+                </svg>
+              </span>
+              <span className="nav-label">Chores</span>
+            </a>
+          </li>
+          <li>
+            <a
+              href="#todos"
+              className={`nav-btn ${tab === "TODOS" ? "active" : ""}`}
+              onClick={(e) => { e.preventDefault(); setTab("TODOS"); }}
+              aria-current={tab === "TODOS" ? "page" : undefined}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M19 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2ZM9 17H7v-2h2v2Zm0-4H7v-2h2v2Zm0-4H7V7h2v2Zm8 8h-6v-2h6v2Zm0-4h-6v-2h6v2Zm0-4h-6V7h6v2Z" />
+                </svg>
+              </span>
+              <span className="nav-label">To-Dos</span>
+            </a>
+          </li>
+          <li>
+            <a
+              href="#more"
+              className="nav-btn"
+              onClick={(e) => { e.preventDefault(); setMoreOpen(true); }}
+            >
+              <span className="nav-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm-6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm12 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" />
+                </svg>
+              </span>
+              <span className="nav-label">More</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      {isMoreOpen && (
+        <div className="drawer-backdrop" onClick={() => setMoreOpen(false)}>
+          <aside className="drawer" aria-label="More menu" onClick={e => e.stopPropagation()}>
+            <div className="drawer-header">
+              <div className="h2" aria-hidden="true"></div>
+              <button className="btn icon-only danger" onClick={() => setMoreOpen(false)} aria-label="Close">
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <div className="stack">
-              <input
-                className="input"
-                placeholder="Guest name"
-                value={guestName}
-                onChange={e => setGuestName(e.target.value)}
-              />
-              <div className="stack">
-                <div>
-                  <div className="small">Date</div>
-                  <input
-                    className="input"
-                    type="date"
-                    value={guestDate}
-                    onChange={e => setGuestDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <div className="small">Time</div>
-                  <input
-                    className="input"
-                    type="time"
-                    value={guestTime}
-                    onChange={e => setGuestTime(e.target.value)}
-                  />
-                </div>
+            <div className="drawer-user">
+              <div className="drawer-avatar avatar-mark" aria-hidden="true">
+                <img src={avatarPresetSrc} alt="" />
               </div>
-              <input
-                className="input"
-                placeholder="Note (optional)"
-                value={guestNote}
-                onChange={e => setGuestNote(e.target.value)}
-              />
+              <div className="drawer-user-meta">
+                <div className="h3" style={{ margin: 0 }}>{me?.name || "Anonymous"}</div>
+                <div className="small muted">{house?.name || "No house"}</div>
+              </div>
             </div>
-            <div className="modal-actions">
-              <button className="btn danger" onClick={() => setGuestModalOpen(false)}>Cancel</button>
-              <button className="btn" onClick={addGuest} disabled={!canAddGuest}>Save</button>
+            <div className="drawer-list">
+              <a
+                href="#roommates"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("ROOMMATES");
+                  setMoreOpen(false);
+                }}
+              >
+                Roommates
+              </a>
+              <a
+                href="#finance"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("FINANCE");
+                  setMoreOpen(false);
+                }}
+              >
+                Finance
+              </a>
+              <a
+                href="#guests"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("GUESTS");
+                  setMoreOpen(false);
+                }}
+              >
+                Guests
+              </a>
+              <a
+                href="#notes"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("NOTES");
+                  setMoreOpen(false);
+                }}
+              >
+                Notes
+              </a>
+              <a
+                href="#settings"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("PROFILE");
+                  setMoreOpen(false);
+                }}
+              >
+                Settings
+              </a>
+              <a
+                href="#support"
+                className="drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTab("SUPPORT");
+                  setMoreOpen(false);
+                }}
+              >
+                Support
+              </a>
             </div>
-          </div>
+          </aside>
         </div>
       )}
 

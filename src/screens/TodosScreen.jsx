@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-export default function TodosScreen({ me, houseUsers = [], todoLists = [], actions }) {
+export default function TodosScreen({ me, houseUsers = [], todoLists = [], actions, onBack }) {
   const [newListTitle, setNewListTitle] = useState("");
   const [newListItems, setNewListItems] = useState([{ id: "item-1", text: "" }]);
   const [newListShared, setNewListShared] = useState(false);
@@ -74,7 +74,15 @@ export default function TodosScreen({ me, houseUsers = [], todoLists = [], actio
 
   return (
     <>
-      <div className="section-title">To-Dos</div>
+      <div className="row" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div className="section-title" style={{ margin: 0 }}>To-Dos</div>
+        {onBack && (
+          <button className="btn ghost small" onClick={onBack}>
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            <span>Back</span>
+          </button>
+        )}
+      </div>
       <div className="stack">
         <div className="panel">
           <div className="stack">

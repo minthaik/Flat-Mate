@@ -22,7 +22,7 @@ function dueMeta(chore) {
   return { label: new Date(chore.dueAt).toLocaleDateString(), tone: "ok" };
 }
 
-export default function ChoresView({ me, house, houseUsers, chores, actions }) {
+export default function ChoresView({ me, house, houseUsers, chores, actions, onBack }) {
   const [selectedId, setSelectedId] = useState(null);
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -83,20 +83,29 @@ export default function ChoresView({ me, house, houseUsers, chores, actions }) {
 
   return (
     <>
-      {isAdmin && (
-        <div className="topbar" style={{ marginBottom: 12 }}>
-          <div>
-            <span className="brand">Chores</span>
-            {house?.name && <span className="badge">{house.name}</span>}
-          </div>
-          <div className="row">
+      <div className="row" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div className="section-title">Chores</div>
+        {onBack && (
+          <button className="btn ghost small" onClick={onBack}>
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            <span>Back</span>
+          </button>
+        )}
+      </div>
+
+      <div className="topbar" style={{ marginBottom: 12, gap: 8, alignItems: "center" }}>
+        <div className="row" style={{ alignItems: "center", gap: 6 }}>
+          {house?.name && <span className="badge">{house.name}</span>}
+        </div>
+        <div className="row" style={{ gap: 8, alignItems: "center" }}>
+          {isAdmin && (
             <button className="btn secondary small" onClick={() => addRef.current?.openNew()}>
               <span className="material-symbols-outlined" aria-hidden="true">add</span>
               <span>Add Chore</span>
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {!house && (
         <div className="card">
