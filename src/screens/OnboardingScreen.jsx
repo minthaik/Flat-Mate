@@ -14,7 +14,6 @@ export default function OnboardingScreen({ me, actions }) {
     setLoading(true);
     setError("");
     try {
-      const invite = code.trim().toUpperCase();
       const resp = await fetch("/api/wp-houses", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
@@ -41,6 +40,7 @@ export default function OnboardingScreen({ me, actions }) {
     setLoading(true);
     setError("");
     try {
+      const invite = code.trim().toUpperCase();
       const resp = await fetch("/api/wp-houses", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
