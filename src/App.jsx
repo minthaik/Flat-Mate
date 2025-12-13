@@ -112,10 +112,11 @@ export default function App() {
     syncRemoteHouses: (houses) => dispatch({ type: "SYNC_REMOTE_HOUSES", houses })
   }), [dispatch, state]);
 
+  const activeHouseId = house?.id || "none";
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     if (!token || !actions?.syncRemoteHouses) return;
-    const key = `${token}:${me?.id || "anon"}`;
+    const key = `${token}:${me?.id || "anon"}:${activeHouseId}`;
     if (remoteSyncRef.current === key) return;
     remoteSyncRef.current = key;
     fetch("/api/wp-houses", {
@@ -127,7 +128,7 @@ export default function App() {
         actions.syncRemoteHouses(data);
       })
       .catch(() => {});
-  }, [actions?.syncRemoteHouses, me?.id]);
+  }, [actions?.syncRemoteHouses, me?.id, activeHouseId]);
 
   return (
     <div className="app-shell">

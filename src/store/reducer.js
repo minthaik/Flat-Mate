@@ -372,17 +372,28 @@ export function reducer(state, action) {
       baseHouse.currency = (house.currency || baseHouse.currency || "USD").toUpperCase();
       baseHouse.memberIds = memberIds;
 
-      const adminRemote = remoteMembers.find(m => (m.role || "").toLowerCase() === "admin");
-      let adminId = baseHouse.adminId || null;
-      if (adminRemote) {
-        const key = remoteUserKey(adminRemote);
-        if (key && remoteIdMap.has(key)) {
-          adminId = remoteIdMap.get(key);
-        }
-      }
-      if (!adminId && remoteMembers.length === 0 && !baseHouse.adminId) {
-        adminId = meId;
-      }
+  const adminRemote = remoteMembers.find(m => (m.role || "").toLowerCase() === "admin");
+  let adminId = baseHouse.adminId || null;
+  const adminWpId = remote.admin_user_id || remote.adminUserId || remote?.admin_member?.wp_user_id;
+  if (!adminId && adminWpId) {
+    const numericWpId = Number(adminWpId);
+    const match = workingUsers.find(u => u.wpId && !Number.isNaN(numericWpId) && u.wpId === numericWpId);
+    if (match) {
+      adminId = match.id;
+    }
+  }
+  if (!adminId && adminRemote) {
+    const key = remoteUserKey(adminRemote);
+    if (key && remoteIdMap.has(key)) {
+      adminId = remoteIdMap.get(key);
+    } else if (adminRemote.email) {
+      const match = workingUsers.find(u => normalizeEmail(u.email) === normalizeEmail(adminRemote.email));
+      if (match) adminId = match.id;
+    }
+  }
+  if (!adminId && remoteMembers.length === 0 && !adminWpId && !baseHouse.adminId) {
+    adminId = meId;
+  }
       baseHouse.adminId = adminId || baseHouse.adminId || pickAdmin(memberIds, null);
 
       const houses = existing
