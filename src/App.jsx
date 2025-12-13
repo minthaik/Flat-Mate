@@ -6,7 +6,7 @@ import Toast from "./components/Toast";
 
 import { reducer, loadInitial } from "./store/reducer";
 import { STORAGE_KEY } from "./store/utils";
-import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseNotes, getHouseExpenses } from "./store/selectors";
+import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseExpenses } from "./store/selectors";
 import { uid } from "./store/utils";
 
 export default function App() {
@@ -64,7 +64,6 @@ export default function App() {
   const houseUsers = getHouseUsers(state, me);
   const houseChores = getHouseChores(state, me);
   const houseGuests = getHouseGuests(state, me);
-  const houseNotes = getHouseNotes(state, me);
   const todoLists = getTodoLists(state, me);
   const houseExpenses = getHouseExpenses(state, me);
   const remoteSyncRef = useRef(null);
@@ -169,7 +168,6 @@ export default function App() {
             houseUsers={houseUsers}
             houseChores={houseChores}
             houseGuests={houseGuests}
-            houseNotes={houseNotes}
             todoLists={todoLists}
             houseExpenses={houseExpenses}
             actions={actions}

@@ -6,7 +6,7 @@ import TodosScreen from "./TodosScreen";
 import SupportScreen from "./SupportScreen";
 import RoommatesScreen from "./RoommatesScreen";
 import FinanceScreen from "./FinanceScreen";
-import NotesScreen from "./NotesScreen";
+import CommunityScreen from "./CommunityScreen";
 import GuestsScreen from "./GuestsScreen";
 
 const AVATAR_PRESETS = [
@@ -38,7 +38,6 @@ export default function Dashboard({
   houseUsers,
   houseChores,
   houseGuests,
-  houseNotes = [],
   todoLists,
   houseExpenses = [],
   actions
@@ -51,8 +50,17 @@ export default function Dashboard({
   const [pendingStatus, setPendingStatus] = useState(null);
   const [nowTs, setNowTs] = useState(Date.now());
   const [isMoreOpen, setMoreOpen] = useState(false);
-  const [tab, setTab] = useState("HOME");
+  const [tab, setTab] = useState(() => {
+    if (typeof window === "undefined") return "HOME";
+    const stored = localStorage.getItem("dashboard_tab");
+    return stored || "HOME";
+  });
   const remoteSyncKey = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("dashboard_tab", tab);
+  }, [tab]);
 
   useEffect(() => {
     const id = setInterval(() => actions.checkDndExpiry(), 60000);
@@ -332,15 +340,17 @@ export default function Dashboard({
             </OverviewCard>
 
             <OverviewCard
-              title="House notes"
-              actionLabel="View all"
-              onAction={() => setTab("NOTES")}
+              title="Community"
+              actionLabel="View feed"
+              onAction={() => setTab("COMMUNITY")}
               panelStyle={{ background: "linear-gradient(135deg, #ecf5ff 0%, #f6fffb 100%)", border: "1px solid rgba(15,102,191,0.16)" }}
             >
               <div className="stack" style={{ gap: 8 }}>
-                <div className="small">Open the Notes section to view and post house notes.</div>
-                <button className="btn secondary small" onClick={() => setTab("NOTES")}>
-                  Go to Notes
+                <div className="small">
+                  Share updates with a photo or start a conversation. Head to the Community feed to post.
+                </div>
+                <button className="btn secondary small" onClick={() => setTab("COMMUNITY")}>
+                  Open community feed
                 </button>
               </div>
             </OverviewCard>
@@ -362,7 +372,7 @@ export default function Dashboard({
                         <span className="pill">{exp.type === "shared" ? "Shared" : "Personal"}</span>
                       </div>
                       <div className="small muted" style={{ color: "#f1f5f9" }}>
-                        {exp.category} · {fmtCurrency(exp.amount)} · {payer?.name || "Unknown"} on {new Date(exp.createdAt).toLocaleDateString()}
+                        {exp.category} ï¿½ {fmtCurrency(exp.amount)} ï¿½ {payer?.name || "Unknown"} on {new Date(exp.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                   );
@@ -431,17 +441,11 @@ export default function Dashboard({
         />
       )}
 
-      {tab === "NOTES" && (
-        <NotesScreen
+      {tab === "COMMUNITY" && (
+        <CommunityScreen
           me={me}
           house={house}
           houseUsers={houseUsers}
-          notes={houseNotes}
-          actions={{
-            addNote: actions.addNote,
-            deleteNote: actions.deleteNote,
-            updateNote: actions.updateNote
-          }}
           onBack={() => setTab("HOME")}
         />
       )}
@@ -588,15 +592,15 @@ export default function Dashboard({
                 Guests
               </a>
               <a
-                href="#notes"
+                href="#community"
                 className="drawer-link"
                 onClick={(e) => {
                   e.preventDefault();
-                  setTab("NOTES");
+                  setTab("COMMUNITY");
                   setMoreOpen(false);
                 }}
               >
-                Notes
+                Community
               </a>
               <a
                 href="#settings"
@@ -706,9 +710,6 @@ export default function Dashboard({
     </>
   );
 }
-
-
-
 
 
 
