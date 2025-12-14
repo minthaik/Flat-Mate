@@ -12,10 +12,12 @@ if (!defined('ABSPATH')) {
 
 class Flatmate_API_Plugin {
     const DEFAULT_POST_RETENTION_DAYS = 90;
+    const AUTH_TOKEN_TTL = 604800; // 7 days
     private static $instance = null;
     private $tables;
     private $post_retention_days;
     private $member_cache = [];
+    private $last_token_error = null;
 
     public static function instance() {
         if (self::$instance === null) {
@@ -35,6 +37,7 @@ class Flatmate_API_Plugin {
             'expenses' => $prefix . 'expenses',
             'posts'    => $prefix . 'posts',
             'post_comments' => $prefix . 'post_comments',
+            'tokens'  => $prefix . 'auth_tokens',
         ];
         $this->post_retention_days = max(
             1,
@@ -45,6 +48,8 @@ class Flatmate_API_Plugin {
         register_deactivation_hook(__FILE__, [self::class, 'deactivate']);
         add_action('rest_api_init', [$this, 'register_routes']);
         add_action('flatmate_cleanup_expired_posts', [$this, 'cleanup_expired_posts']);
+        add_filter('determine_current_user', [$this, 'determine_current_user_from_token'], 20);
+        add_filter('rest_authentication_errors', [$this, 'maybe_raise_token_error'], 20);
     }
 
     private function get_service_key() {
@@ -212,6 +217,18 @@ private function get_actor_override_user_id() {
             KEY author_member_id (author_member_id)
         ) $charset_collate;";
 
+        $tokens = "CREATE TABLE {$this->tables['tokens']} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id BIGINT UNSIGNED NOT NULL,
+            token_hash VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            last_used DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY expires_at (expires_at)
+        ) $charset_collate;";
+
         dbDelta($houses);
         dbDelta($members);
         dbDelta($notes);
@@ -219,6 +236,7 @@ private function get_actor_override_user_id() {
         dbDelta($expenses);
         dbDelta($posts);
         dbDelta($post_comments);
+        dbDelta($tokens);
 
         if (!wp_next_scheduled('flatmate_cleanup_expired_posts')) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'flatmate_cleanup_expired_posts');
@@ -592,6 +610,14 @@ private function get_actor_override_user_id() {
     public function register_routes() {
         $ns = 'flatmate/v1';
 
+        register_rest_route($ns, '/login', [
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'permission_callback' => '__return_true',
+                'callback'            => [$this, 'login'],
+            ],
+        ]);
+
         // Houses
         register_rest_route($ns, '/houses', [
             [
@@ -776,6 +802,129 @@ private function get_actor_override_user_id() {
         return is_wp_error($uid) ? $uid : true;
     }
 
+    private function get_authorization_header() {
+        $header = '';
+        if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            $header = $_SERVER['HTTP_AUTHORIZATION'];
+        } elseif (!empty($_SERVER['Authorization'])) {
+            $header = $_SERVER['Authorization'];
+        } elseif (function_exists('apache_request_headers')) {
+            $headers = apache_request_headers();
+            if (isset($headers['Authorization'])) {
+                $header = $headers['Authorization'];
+            }
+        }
+        return is_string($header) ? trim($header) : '';
+    }
+
+    private function extract_bearer_token() {
+        $header = $this->get_authorization_header();
+        if (!$header) return null;
+        if (stripos($header, 'Bearer ') !== 0) {
+            return null;
+        }
+        return trim(substr($header, 7));
+    }
+
+    private function cleanup_expired_tokens() {
+        global $wpdb;
+        if (empty($this->tables['tokens'])) {
+            return;
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        $wpdb->query($wpdb->prepare("DELETE FROM {$this->tables['tokens']} WHERE expires_at < %s", $now));
+    }
+
+    private function create_user_token($user_id) {
+        global $wpdb;
+        $this->cleanup_expired_tokens();
+        $raw = wp_generate_password(64, false, false);
+        $hash = wp_hash_password($raw);
+        $expires = gmdate('Y-m-d H:i:s', time() + self::AUTH_TOKEN_TTL);
+        $inserted = $wpdb->insert(
+            $this->tables['tokens'],
+            [
+                'user_id'    => $user_id,
+                'token_hash' => $hash,
+                'expires_at' => $expires,
+            ],
+            ['%d','%s','%s']
+        );
+        if (!$inserted) {
+            return new WP_Error('flatmate_token_error', 'Unable to issue token', ['status' => 500]);
+        }
+        $token_id = $wpdb->insert_id;
+        return [
+            'token' => sprintf('%d.%s', $token_id, $raw),
+            'expires_at' => $expires,
+        ];
+    }
+
+    private function validate_bearer_token($token) {
+        global $wpdb;
+        if (empty($token)) {
+            return new WP_Error('flatmate_invalid_token', 'Invalid token', ['status' => 401]);
+        }
+        $parts = explode('.', $token, 2);
+        if (count($parts) !== 2) {
+            return new WP_Error('flatmate_invalid_token', 'Invalid token format', ['status' => 401]);
+        }
+        $token_id = intval($parts[0]);
+        $secret = $parts[1];
+        if ($token_id <= 0 || empty($secret)) {
+            return new WP_Error('flatmate_invalid_token', 'Invalid token format', ['status' => 401]);
+        }
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['tokens']} WHERE id=%d", $token_id));
+        if (!$row) {
+            return new WP_Error('flatmate_invalid_token', 'Token not found', ['status' => 401]);
+        }
+        if (strtotime($row->expires_at) < time()) {
+            $wpdb->delete($this->tables['tokens'], ['id' => $row->id], ['%d']);
+            return new WP_Error('flatmate_invalid_token', 'Token expired', ['status' => 401]);
+        }
+        if (!wp_check_password($secret, $row->token_hash)) {
+            $wpdb->delete($this->tables['tokens'], ['id' => $row->id], ['%d']);
+            return new WP_Error('flatmate_invalid_token', 'Invalid token', ['status' => 401]);
+        }
+        $wpdb->update(
+            $this->tables['tokens'],
+            ['last_used' => gmdate('Y-m-d H:i:s')],
+            ['id' => $row->id],
+            ['%s'],
+            ['%d']
+        );
+        return (int) $row->user_id;
+    }
+
+    public function determine_current_user_from_token($user_id) {
+        if ($user_id) {
+            return $user_id;
+        }
+        $token = $this->extract_bearer_token();
+        if (!$token) {
+            return $user_id;
+        }
+        $validation = $this->validate_bearer_token($token);
+        if (is_wp_error($validation)) {
+            $this->last_token_error = $validation;
+            return 0;
+        }
+        wp_set_current_user($validation);
+        return $validation;
+    }
+
+    public function maybe_raise_token_error($result) {
+        if (!empty($result)) {
+            return $result;
+        }
+        if ($this->last_token_error instanceof WP_Error) {
+            $error = $this->last_token_error;
+            $this->last_token_error = null;
+            return $error;
+        }
+        return $result;
+    }
+
     private function require_membership($house_id, $args = []) {
         global $wpdb;
         $uid = $this->current_user_or_error();
@@ -800,6 +949,32 @@ private function get_actor_override_user_id() {
             }
         }
         return new WP_Error('flatmate_forbidden', 'Not a member of this house', ['status' => 403]);
+    }
+
+    public function login($req) {
+        $username = sanitize_user($req->get_param('username'));
+        $password = $req->get_param('password');
+        if (!$username || !$password) {
+            return new WP_Error('flatmate_invalid_login', 'Username and password required', ['status' => 400]);
+        }
+        $user = wp_authenticate($username, $password);
+        if (is_wp_error($user)) {
+            return new WP_Error('flatmate_invalid_login', 'Invalid username or password', ['status' => 403]);
+        }
+        $token_data = $this->create_user_token((int)$user->ID);
+        if (is_wp_error($token_data)) {
+            return $token_data;
+        }
+        return [
+            'token' => $token_data['token'],
+            'expiresAt' => $token_data['expires_at'],
+            'user' => [
+                'id' => (int)$user->ID,
+                'username' => $user->user_login,
+                'email' => $user->user_email,
+                'name' => $user->display_name,
+            ],
+        ];
     }
 
     /* Houses */

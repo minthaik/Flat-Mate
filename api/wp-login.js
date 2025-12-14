@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   if (!username || !password) return res.status(400).json({ error: "username and password required" });
 
   try {
-    const resp = await fetch(`${WP_BASE.replace(/\/$/, "")}/wp-json/jwt-auth/v1/token`, {
+    const resp = await fetch(`${WP_BASE.replace(/\/$/, "")}/wp-json/flatmate/v1/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })

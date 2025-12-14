@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     // Attempt to log in to return a token immediately.
     let tokenData = null;
     try {
-      const tokenResp = await fetch(`${base}/wp-json/jwt-auth/v1/token`, {
+      const tokenResp = await fetch(`${base}/wp-json/flatmate/v1/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
