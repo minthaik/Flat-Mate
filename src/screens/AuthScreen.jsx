@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function AuthScreen({ actions }) {
+export default function AuthScreen({ actions, onAuthToken }) {
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +24,9 @@ export default function AuthScreen({ actions }) {
       if (!resp.ok || !data?.token) {
         throw new Error(data?.error || data?.message || "Login failed");
       }
-      localStorage.setItem("auth_token", data.token);
+      if (onAuthToken) {
+        onAuthToken(data.token);
+      }
       // fetch profile
       const meResp = await fetch("/api/wp-me", {
         headers: { Authorization: `Bearer ${data.token}` }
@@ -62,8 +64,8 @@ export default function AuthScreen({ actions }) {
 
       // If we got a token, store it and load profile for consistency.
       const token = data?.token;
-      if (token) {
-        localStorage.setItem("auth_token", token);
+      if (token && onAuthToken) {
+        onAuthToken(token);
       }
 
       let profile = null;

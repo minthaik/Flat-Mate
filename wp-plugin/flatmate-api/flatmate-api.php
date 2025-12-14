@@ -11,8 +11,11 @@ if (!defined('ABSPATH')) {
 }
 
 class Flatmate_API_Plugin {
+    const DEFAULT_POST_RETENTION_DAYS = 90;
     private static $instance = null;
     private $tables;
+    private $post_retention_days;
+    private $member_cache = [];
 
     public static function instance() {
         if (self::$instance === null) {
@@ -33,9 +36,70 @@ class Flatmate_API_Plugin {
             'posts'    => $prefix . 'posts',
             'post_comments' => $prefix . 'post_comments',
         ];
+        $this->post_retention_days = max(
+            1,
+            intval(apply_filters('flatmate_post_retention_days', self::DEFAULT_POST_RETENTION_DAYS))
+        );
 
         register_activation_hook(__FILE__, [$this, 'activate']);
+        register_deactivation_hook(__FILE__, [self::class, 'deactivate']);
         add_action('rest_api_init', [$this, 'register_routes']);
+        add_action('flatmate_cleanup_expired_posts', [$this, 'cleanup_expired_posts']);
+    }
+
+    private function get_service_key() {
+    // Prefer a constant defined in wp-config.php, fall back to environment.
+    if (defined('FLATMATE_SERVICE_KEY') && is_string(FLATMATE_SERVICE_KEY) && FLATMATE_SERVICE_KEY !== '') {
+        return FLATMATE_SERVICE_KEY;
+    }
+    $env = getenv('FLATMATE_SERVICE_KEY');
+    return is_string($env) ? $env : '';
+}
+
+private function is_service_request() {
+    $expected = $this->get_service_key();
+    if (!$expected) {
+        return false;
+    }
+    if (empty($_SERVER['HTTP_X_FLATMATE_SERVICE_KEY'])) {
+        return false;
+    }
+    $provided = (string) $_SERVER['HTTP_X_FLATMATE_SERVICE_KEY'];
+    return function_exists('hash_equals') ? hash_equals($expected, $provided) : ($expected === $provided);
+}
+
+private function get_actor_override_user_id() {
+    // SECURITY: Only allow actor impersonation for service requests authenticated as an admin/service account.
+    // Normal end-users must never be able to impersonate arbitrary WordPress user IDs.
+    if (!$this->is_service_request()) {
+        return null;
+    }
+    if (!current_user_can('manage_options')) {
+        return null;
+    }
+    if (empty($_SERVER['HTTP_X_FLATMATE_ACTOR'])) {
+        return null;
+    }
+    $candidate = intval($_SERVER['HTTP_X_FLATMATE_ACTOR']);
+    if ($candidate <= 0) {
+        return null;
+    }
+    $user = get_userdata($candidate);
+    if (!$user) {
+        return null;
+    }
+    if (function_exists('wp_set_current_user')) {
+        wp_set_current_user($candidate);
+    }
+    return $candidate;
+}
+
+    private function get_effective_user_id() {
+        $override = $this->get_actor_override_user_id();
+        if ($override !== null) {
+            return $override;
+        }
+        return get_current_user_id();
     }
 
     public function activate() {
@@ -120,6 +184,7 @@ class Flatmate_API_Plugin {
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             house_id BIGINT UNSIGNED NOT NULL,
             author_id BIGINT UNSIGNED NOT NULL,
+            author_member_id BIGINT UNSIGNED NULL,
             text TEXT DEFAULT '',
             media_id BIGINT UNSIGNED NULL,
             media_url VARCHAR(512) DEFAULT NULL,
@@ -129,6 +194,7 @@ class Flatmate_API_Plugin {
             PRIMARY KEY (id),
             KEY house_id (house_id),
             KEY author_id (author_id),
+            KEY author_member_id (author_member_id),
             KEY created_at (created_at)
         ) $charset_collate;";
 
@@ -136,12 +202,14 @@ class Flatmate_API_Plugin {
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             post_id BIGINT UNSIGNED NOT NULL,
             author_id BIGINT UNSIGNED NOT NULL,
+            author_member_id BIGINT UNSIGNED NULL,
             text TEXT NOT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY post_id (post_id),
-            KEY author_id (author_id)
+            KEY author_id (author_id),
+            KEY author_member_id (author_member_id)
         ) $charset_collate;";
 
         dbDelta($houses);
@@ -151,10 +219,18 @@ class Flatmate_API_Plugin {
         dbDelta($expenses);
         dbDelta($posts);
         dbDelta($post_comments);
+
+        if (!wp_next_scheduled('flatmate_cleanup_expired_posts')) {
+            wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', 'flatmate_cleanup_expired_posts');
+        }
+    }
+
+    public static function deactivate() {
+        wp_clear_scheduled_hook('flatmate_cleanup_expired_posts');
     }
 
     private function current_user_or_error() {
-        $uid = get_current_user_id();
+        $uid = $this->get_effective_user_id();
         if (!$uid) {
             return new WP_Error('flatmate_unauthorized', 'Authentication required', ['status' => 401]);
         }
@@ -195,6 +271,18 @@ class Flatmate_API_Plugin {
         return strtolower($row->role ?? '') === 'admin';
     }
 
+    private function user_is_last_admin($house_id, $user_id) {
+        if (!$this->user_is_house_admin($house_id, $user_id)) {
+            return false;
+        }
+        global $wpdb;
+        $admin_count = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->tables['members']} WHERE house_id=%d AND LOWER(role)='admin'",
+            $house_id
+        ));
+        return $admin_count <= 1;
+    }
+
     private function format_user_summary($user_id) {
         $user = get_userdata($user_id);
         if (!$user) return null;
@@ -205,12 +293,76 @@ class Flatmate_API_Plugin {
         ];
     }
 
+    private function get_member_by_id($house_id, $member_id) {
+        if (!$member_id) return null;
+        $cache_key = sprintf('id:%d:%d', $house_id, $member_id);
+        if (array_key_exists($cache_key, $this->member_cache)) {
+            return $this->member_cache[$cache_key];
+        }
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->tables['members']} WHERE id=%d AND house_id=%d",
+            $member_id,
+            $house_id
+        ), ARRAY_A);
+        $this->member_cache[$cache_key] = $row ?: null;
+        return $this->member_cache[$cache_key];
+    }
+
+    private function get_member_by_user($house_id, $user_id) {
+        if (!$user_id) return null;
+        $cache_key = sprintf('user:%d:%d', $house_id, $user_id);
+        if (array_key_exists($cache_key, $this->member_cache)) {
+            return $this->member_cache[$cache_key];
+        }
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->tables['members']} WHERE house_id=%d AND user_id=%d",
+            $house_id,
+            $user_id
+        ), ARRAY_A);
+        $this->member_cache[$cache_key] = $row ?: null;
+        return $this->member_cache[$cache_key];
+    }
+
+    private function resolve_member_actor($house_id, $member_id, $user_id) {
+        $member = $this->get_member_by_id($house_id, $member_id);
+        if ($member) {
+            return $member;
+        }
+        return $this->get_member_by_user($house_id, $user_id);
+    }
+
+    private function format_member_summary($member_row) {
+        if (!$member_row) return null;
+        $user = get_userdata((int)$member_row['user_id']);
+        $name = $user ? $user->display_name : null;
+        $email = $user ? $user->user_email : null;
+        $avatar = function_exists('get_avatar_url') ? get_avatar_url((int)$member_row['user_id']) : null;
+        return [
+            'id' => (int)$member_row['id'],
+            'houseId' => (int)$member_row['house_id'],
+            'userId' => (int)$member_row['user_id'],
+            'role' => $member_row['role'] ?: 'member',
+            'status' => $member_row['status'] ?: 'HOME',
+            'name' => $name,
+            'email' => $email,
+            'avatarUrl' => $avatar,
+        ];
+    }
+
     private function format_post_row($row) {
         if (!$row) return null;
+        $member_row = $this->resolve_member_actor(
+            (int)$row['house_id'],
+            isset($row['author_member_id']) ? (int)$row['author_member_id'] : 0,
+            (int)$row['author_id']
+        );
         return [
             'id' => (int)$row['id'],
             'houseId' => (int)$row['house_id'],
             'authorId' => (int)$row['author_id'],
+            'authorMemberId' => $member_row ? (int)$member_row['id'] : (isset($row['author_member_id']) ? (int)$row['author_member_id'] : null),
             'text' => $row['text'],
             'mediaUrl' => $row['media_url'],
             'mediaId' => $row['media_id'] ? (int)$row['media_id'] : null,
@@ -218,19 +370,29 @@ class Flatmate_API_Plugin {
             'createdAt' => $row['created_at'],
             'updatedAt' => $row['updated_at'],
             'author' => $this->format_user_summary($row['author_id']),
+            'member' => $this->format_member_summary($member_row),
         ];
     }
 
     private function format_comment_row($row) {
         if (!$row) return null;
+        $house_id = isset($row['house_id']) ? (int)$row['house_id'] : null;
+        $member_row = $house_id ? $this->resolve_member_actor(
+            $house_id,
+            isset($row['author_member_id']) ? (int)$row['author_member_id'] : 0,
+            (int)$row['author_id']
+        ) : null;
         return [
             'id' => (int)$row['id'],
             'postId' => (int)$row['post_id'],
             'authorId' => (int)$row['author_id'],
+            'authorMemberId' => $member_row ? (int)$member_row['id'] : (isset($row['author_member_id']) ? (int)$row['author_member_id'] : null),
             'text' => $row['text'],
             'createdAt' => $row['created_at'],
             'updatedAt' => $row['updated_at'],
             'author' => $this->format_user_summary($row['author_id']),
+            'member' => $this->format_member_summary($member_row),
+            'houseId' => $house_id,
         ];
     }
 
@@ -240,12 +402,17 @@ class Flatmate_API_Plugin {
         $ids = array_map(function($post) {
             return (int)$post['id'];
         }, $posts);
+        $house_lookup = [];
+        foreach ($posts as $post) {
+            $house_lookup[(int)$post['id']] = isset($post['houseId']) ? (int)$post['houseId'] : null;
+        }
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
         $query = "SELECT * FROM {$this->tables['post_comments']} WHERE post_id IN ($placeholders) ORDER BY created_at DESC";
         $rows = $wpdb->get_results($wpdb->prepare($query, $ids), ARRAY_A);
         $grouped = [];
         foreach ($rows as $row) {
             $pid = (int)$row['post_id'];
+            $row['house_id'] = $house_lookup[$pid] ?? null;
             if (!isset($grouped[$pid])) $grouped[$pid] = [];
             if (count($grouped[$pid]) >= $limit) continue;
             $grouped[$pid][] = $row;
@@ -269,7 +436,9 @@ class Flatmate_API_Plugin {
         $page = max(1, intval($page));
         $offset = ($page - 1) * $per_page;
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$this->tables['post_comments']} WHERE post_id=%d ORDER BY created_at ASC LIMIT %d OFFSET %d",
+            "SELECT c.*, p.house_id FROM {$this->tables['post_comments']} c
+             JOIN {$this->tables['posts']} p ON p.id = c.post_id
+             WHERE c.post_id=%d ORDER BY c.created_at ASC LIMIT %d OFFSET %d",
             $post_id,
             $per_page,
             $offset
@@ -282,9 +451,41 @@ class Flatmate_API_Plugin {
     private function get_comment_record($comment_id) {
         global $wpdb;
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$this->tables['post_comments']} WHERE id=%d",
+            "SELECT c.*, p.house_id FROM {$this->tables['post_comments']} c
+             JOIN {$this->tables['posts']} p ON p.id = c.post_id
+             WHERE c.id=%d",
             $comment_id
         ), ARRAY_A);
+    }
+
+    public function cleanup_expired_posts() {
+        global $wpdb;
+        $days = max(
+            1,
+            intval(apply_filters('flatmate_post_retention_days', $this->post_retention_days))
+        );
+        $cutoff = gmdate('Y-m-d H:i:s', time() - ($days * DAY_IN_SECONDS));
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT id, media_id FROM {$this->tables['posts']} WHERE created_at < %s",
+            $cutoff
+        ), ARRAY_A);
+        if (empty($rows)) {
+            return;
+        }
+        $post_ids = array_map('intval', wp_list_pluck($rows, 'id'));
+        if (!empty($post_ids)) {
+            $id_list = implode(',', $post_ids);
+            $wpdb->query("DELETE FROM {$this->tables['post_comments']} WHERE post_id IN ($id_list)");
+            $wpdb->query("DELETE FROM {$this->tables['posts']} WHERE id IN ($id_list)");
+        }
+        if (!function_exists('wp_delete_attachment')) {
+            require_once ABSPATH . 'wp-admin/includes/post.php';
+        }
+        foreach ($rows as $row) {
+            if (!empty($row['media_id'])) {
+                wp_delete_attachment((int)$row['media_id'], true);
+            }
+        }
     }
 
     private function handle_post_media($file) {
@@ -575,10 +776,11 @@ class Flatmate_API_Plugin {
         return is_wp_error($uid) ? $uid : true;
     }
 
-    private function require_membership($house_id) {
+    private function require_membership($house_id, $args = []) {
         global $wpdb;
         $uid = $this->current_user_or_error();
         if (is_wp_error($uid)) return $uid;
+        $allow_service_auto_add = !empty($args['allow_service_auto_add']);
         // Allow admins/service accounts to bypass membership checks
         if (current_user_can('manage_options') || current_user_can('edit_users')) {
             return $uid;
@@ -586,15 +788,16 @@ class Flatmate_API_Plugin {
         if ($this->is_house_member($house_id, $uid)) {
             return $uid;
         }
-        // Auto-add the current user as a member to avoid blocking basic-auth service users
-        $wpdb->replace($this->tables['members'], [
-            'house_id' => $house_id,
-            'user_id'  => $uid,
-            'role'     => 'member',
-            'status'   => 'HOME',
-        ], ['%d','%d','%s','%s']);
-        if ($this->is_house_member($house_id, $uid)) {
-            return $uid;
+        if ($allow_service_auto_add && $this->is_service_request()) {
+            $wpdb->replace($this->tables['members'], [
+                'house_id' => $house_id,
+                'user_id'  => $uid,
+                'role'     => 'member',
+                'status'   => 'HOME',
+            ], ['%d','%d','%s','%s']);
+            if ($this->is_house_member($house_id, $uid)) {
+                return $uid;
+            }
         }
         return new WP_Error('flatmate_forbidden', 'Not a member of this house', ['status' => 403]);
     }
@@ -673,6 +876,9 @@ class Flatmate_API_Plugin {
         $house_id = intval($req['id']);
         $uid = $this->require_membership($house_id);
         if (is_wp_error($uid)) return $uid;
+        if (!$this->user_is_house_admin($house_id, $uid)) {
+            return new WP_Error('flatmate_forbidden', 'Admin privileges required', ['status' => 403]);
+        }
         $wpdb->delete($this->tables['houses'], ['id' => $house_id], ['%d']);
         $wpdb->delete($this->tables['members'], ['house_id' => $house_id], ['%d']);
         $wpdb->delete($this->tables['notes'], ['house_id' => $house_id], ['%d']);
@@ -686,8 +892,14 @@ class Flatmate_API_Plugin {
         $house_id = intval($req['id']);
         $uid = $this->require_membership($house_id);
         if (is_wp_error($uid)) return $uid;
+        if (!$this->user_is_house_admin($house_id, $uid)) {
+            return new WP_Error('flatmate_forbidden', 'Admin privileges required to add members', ['status' => 403]);
+        }
         $user_id = intval($req['user_id']);
         if (!$user_id) return new WP_Error('flatmate_invalid', 'user_id required', ['status' => 400]);
+        if (!get_userdata($user_id)) {
+            return new WP_Error('flatmate_invalid', 'User not found', ['status' => 404]);
+        }
         $wpdb->replace($this->tables['members'], [
             'house_id' => $house_id,
             'user_id'  => $user_id,
@@ -726,15 +938,14 @@ class Flatmate_API_Plugin {
         if (!$user_id) {
             $user_id = $uid;
         }
-        $wpdb->delete($this->tables['members'], ['house_id' => $house_id, 'user_id' => $user_id], ['%d','%d']);
-        $member_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->tables['members']} WHERE house_id=%d", $house_id));
-        if (intval($member_count) === 0) {
-            $wpdb->delete($this->tables['houses'], ['id' => $house_id], ['%d']);
-            $wpdb->delete($this->tables['notes'], ['house_id' => $house_id], ['%d']);
-            $wpdb->delete($this->tables['chores'], ['house_id' => $house_id], ['%d']);
-            $wpdb->delete($this->tables['expenses'], ['house_id' => $house_id], ['%d']);
-            return ['ok' => true, 'members' => [], 'house_deleted' => true];
+        $is_self = ($user_id === $uid);
+        if (!$is_self && !$this->user_is_house_admin($house_id, $uid)) {
+            return new WP_Error('flatmate_forbidden', 'Admin privileges required to remove other members', ['status' => 403]);
         }
+        if ($this->user_is_last_admin($house_id, $user_id)) {
+            return new WP_Error('flatmate_forbidden', 'Cannot remove the last house admin', ['status' => 403]);
+        }
+        $wpdb->delete($this->tables['members'], ['house_id' => $house_id, 'user_id' => $user_id], ['%d','%d']);
         return ['ok' => true, 'members' => $this->get_house_members($house_id)];
     }
 
@@ -784,6 +995,12 @@ class Flatmate_API_Plugin {
         if (!$text && (empty($image_file) || empty($image_file['tmp_name']))) {
             return new WP_Error('flatmate_invalid', 'Text or image required', ['status' => 400]);
         }
+        $member_param = $req['memberId'] ?? $req['member_id'] ?? null;
+        if ($member_param === null && $req instanceof WP_REST_Request) {
+            $member_param = $req->get_param('memberId') ?? $req->get_param('member_id');
+        }
+        $author_member_row = $this->resolve_member_actor($house_id, intval($member_param), $uid);
+        $author_member_id = $author_member_row ? (int)$author_member_row['id'] : null;
         $media = null;
         if (!empty($image_file) && !empty($image_file['tmp_name'])) {
             $media = $this->handle_post_media($image_file);
@@ -792,10 +1009,11 @@ class Flatmate_API_Plugin {
         $wpdb->insert($this->tables['posts'], [
             'house_id' => $house_id,
             'author_id' => $uid,
+             'author_member_id' => $author_member_id,
             'text' => $text,
             'media_id' => $media['id'] ?? null,
             'media_url' => $media['url'] ?? null,
-        ], ['%d','%d','%s','%d','%s']);
+        ], ['%d','%d','%d','%s','%d','%s']);
         $post_id = $wpdb->insert_id;
         $row = $this->get_post_record($post_id);
         $post = $this->format_post_row($row);
@@ -863,11 +1081,18 @@ class Flatmate_API_Plugin {
         if (is_wp_error($uid)) return $uid;
         $text = sanitize_textarea_field($req['text'] ?? $req->get_param('text'));
         if (!$text) return new WP_Error('flatmate_invalid', 'text required', ['status' => 400]);
+        $member_param = $req['memberId'] ?? $req['member_id'] ?? null;
+        if ($member_param === null && $req instanceof WP_REST_Request) {
+            $member_param = $req->get_param('memberId') ?? $req->get_param('member_id');
+        }
+        $author_member_row = $this->resolve_member_actor((int)$row['house_id'], intval($member_param), $uid);
+        $author_member_id = $author_member_row ? (int)$author_member_row['id'] : null;
         $wpdb->insert($this->tables['post_comments'], [
             'post_id' => $post_id,
             'author_id' => $uid,
+            'author_member_id' => $author_member_id,
             'text' => $text,
-        ], ['%d','%d','%s']);
+        ], ['%d','%d','%d','%s']);
         $comment_id = $wpdb->insert_id;
         $wpdb->query($wpdb->prepare(
             "UPDATE {$this->tables['posts']} SET comment_count = comment_count + 1 WHERE id=%d",

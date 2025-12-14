@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { isHouseAdmin as domainIsHouseAdmin } from "../domain/houses";
 
 const AVATAR_PRESETS = [
   { id: "happy", src: "/avatars/avatar-happy.svg", accent: "#7ea0ff" },
@@ -15,8 +16,16 @@ function avatarSrc(user) {
 
 export default function RoommatesScreen({ me, house, houseUsers = [], onBack }) {
   const list = useMemo(() => {
-    return [...houseUsers].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  }, [houseUsers]);
+    const sorted = [...houseUsers];
+    sorted.sort((a, b) => {
+      const aAdmin = domainIsHouseAdmin(a, house);
+      const bAdmin = domainIsHouseAdmin(b, house);
+      if (aAdmin && !bAdmin) return -1;
+      if (!aAdmin && bAdmin) return 1;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    return sorted;
+  }, [houseUsers, house?.adminId, house?.adminWpId]);
 
   return (
     <>
@@ -36,7 +45,7 @@ export default function RoommatesScreen({ me, house, houseUsers = [], onBack }) 
 
         <div className="stack">
           {list.map((u, idx) => {
-            const isAdmin = house?.adminId === u.id;
+            const isAdmin = domainIsHouseAdmin(u, house);
             const statusClass = u.status === "DND" ? "dnd" : u.status === "AWAY" ? "away" : u.status === "OUT" ? "out" : "home";
             const phone = (u.phone || "").trim();
             const phoneHref = phone ? `tel:${phone.replace(/[^+0-9]/g, "") || phone}` : null;
@@ -57,7 +66,20 @@ export default function RoommatesScreen({ me, house, houseUsers = [], onBack }) 
                     <div className="stack" style={{ gap: 6, minWidth: 0 }}>
                       <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <div className="h3" style={{ margin: 0 }}>{u.name}</div>
-                        {isAdmin && <span className="badge">Admin</span>}
+                        {isAdmin && (
+                          <span
+                            className="pill"
+                            style={{
+                              background: "rgba(220, 38, 38, 0.12)",
+                              color: "#b91c1c",
+                              border: "1px solid rgba(185, 28, 28, 0.3)",
+                              fontSize: 11,
+                              padding: "4px 10px"
+                            }}
+                          >
+                            Admin
+                          </span>
+                        )}
                       </div>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                         <span className={`pill ${statusClass}`} style={{ fontSize: 11, padding: "4px 10px" }}>

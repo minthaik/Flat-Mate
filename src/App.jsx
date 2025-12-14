@@ -5,20 +5,17 @@ import Dashboard from "./screens/Dashboard";
 import Toast from "./components/Toast";
 
 import { reducer, loadInitial } from "./store/reducer";
-import { STORAGE_KEY } from "./store/utils";
 import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseExpenses } from "./store/selectors";
-import { uid } from "./store/utils";
+import { uid, SESSION_STATE_KEY } from "./store/utils";
+
+const AUTH_TOKEN_KEY = "flatmate_auth_token";
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial);
-
-  useEffect(() => {
-    // Debounce saving to localStorage to prevent blocking the main thread
-    const handler = setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [state]);
+  const [authToken, setAuthToken] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(AUTH_TOKEN_KEY);
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", state.theme || "light");
@@ -68,6 +65,23 @@ export default function App() {
   const houseExpenses = getHouseExpenses(state, me);
   const remoteSyncRef = useRef(null);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (authToken) {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, authToken);
+    } else {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    }
+  }, [authToken]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const payload = JSON.stringify({ ...state, toast: null });
+      sessionStorage.setItem(SESSION_STATE_KEY, payload);
+    } catch {}
+  }, [state]);
+
   const actions = useMemo(() => ({
     login: (email, profile) => {
       const normalized = String(email || "").toLowerCase().trim();
@@ -77,7 +91,10 @@ export default function App() {
       return true;
     },
     signup: (name, email, profile) => dispatch({ type: "SIGNUP", name, email, profile }),
-    logout: () => dispatch({ type: "LOGOUT" }),
+    logout: () => {
+      setAuthToken(null);
+      dispatch({ type: "LOGOUT" });
+    },
     createHouse: (payload) => dispatch({ type: "CREATE_HOUSE", payload }),
     joinHouse: (payload) => dispatch({ type: "JOIN_HOUSE", payload }),
 
@@ -113,13 +130,12 @@ export default function App() {
 
   const activeHouseId = house?.id || "none";
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    if (!token || !actions?.syncRemoteHouses) return;
-    const key = `${token}:${me?.id || "anon"}:${activeHouseId}`;
+    if (!authToken || !actions?.syncRemoteHouses) return;
+    const key = `${authToken}:${me?.id || "anon"}:${activeHouseId}`;
     if (remoteSyncRef.current === key) return;
     remoteSyncRef.current = key;
     fetch("/api/wp-houses", {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     })
       .then(async resp => {
         const data = await resp.json().catch(() => []);
@@ -127,7 +143,39 @@ export default function App() {
         actions.syncRemoteHouses(data);
       })
       .catch(() => {});
-  }, [actions?.syncRemoteHouses, me?.id, activeHouseId]);
+  }, [actions?.syncRemoteHouses, me?.id, activeHouseId, authToken]);
+
+  useEffect(() => {
+    if (!authToken || state.currentUserId) return;
+    let cancelled = false;
+    async function hydrateFromToken() {
+      try {
+        const resp = await fetch("/api/wp-me", {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        if (!resp.ok) return;
+        const meData = await resp.json().catch(() => null);
+        if (!meData || cancelled) return;
+        const email =
+          String(meData.email || meData.user_email || meData.username || "").toLowerCase().trim();
+        const name = meData.name || meData.display_name || meData.user_nicename || "Member";
+        if (!email) return;
+        const profile = { name, wpId: meData.id ?? meData.user_id ?? null };
+        const exists = state?.db?.users?.some(u => u.email?.toLowerCase() === email) ?? false;
+        if (exists) {
+          dispatch({ type: "LOGIN", email, profile });
+        } else {
+          dispatch({ type: "SIGNUP", name, email, profile });
+        }
+      } catch {
+        // ignore token hydration errors; user can login manually
+      }
+    }
+    hydrateFromToken();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, state.db.users, state.currentUserId, dispatch]);
 
   return (
     <div className="app-shell">
@@ -158,8 +206,8 @@ export default function App() {
       </div>
 
       <div style={{ marginTop: 0 }}>
-        {state.view === "AUTH" && <AuthScreen actions={actions} />}
-        {state.view === "ONBOARDING" && <OnboardingScreen me={me} actions={actions} />}
+        {state.view === "AUTH" && <AuthScreen actions={actions} onAuthToken={setAuthToken} />}
+        {state.view === "ONBOARDING" && <OnboardingScreen me={me} actions={actions} authToken={authToken} />}
         {state.view === "DASHBOARD" && (
           <Dashboard
             state={state}
@@ -171,6 +219,7 @@ export default function App() {
             todoLists={todoLists}
             houseExpenses={houseExpenses}
             actions={actions}
+            authToken={authToken}
           />
         )}
       </div>

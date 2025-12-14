@@ -2,19 +2,13 @@ const WP_BASE = process.env.WP_BASE_URL || "https://backend.paxbud.com";
 
 function buildAuth(req) {
   const incomingAuth = req.headers.authorization;
-  const wpUser = process.env.WP_USER;
-  const wpPass = process.env.WP_APP_PW;
-  const basic = wpUser && wpPass ? `Basic ${Buffer.from(`${wpUser}:${wpPass}`).toString("base64")}` : null;
-  const authHeader = incomingAuth || basic;
+    const basic = null;
+  const authHeader = incomingAuth;
   return { authHeader, basic, incomingAuth };
 }
 
 async function fetchWithFallback(url, opts, basic, incomingAuth) {
   const resp = await fetch(url, opts);
-  if (!resp.ok && (resp.status === 401 || resp.status === 403) && basic && incomingAuth) {
-    const retryHeaders = { ...(opts.headers || {}), Authorization: basic };
-    return fetch(url, { ...opts, headers: retryHeaders });
-  }
   return resp;
 }
 

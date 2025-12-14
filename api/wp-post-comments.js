@@ -2,11 +2,11 @@ const getBaseUrl = () => (process.env.WP_BASE_URL || "https://backend.paxbud.com
 
 const buildAuthHeader = (req) => {
   const incoming = req.headers.authorization;
-  const wpUser = process.env.WP_USER;
-  const wpPass = process.env.WP_APP_PW;
-  const fallback = wpUser && wpPass ? `Basic ${Buffer.from(`${wpUser}:${wpPass}`).toString("base64")}` : null;
+    const wpUser = null;
+  const wpPass = null;
+  const fallback = null;
   return {
-    header: incoming || fallback,
+    header: incoming,
     basic: fallback,
     incoming
   };
@@ -25,13 +25,18 @@ const parseResponse = async (resp) => {
   }
 };
 
-const withFallback = async (url, opts, basicAuth, incomingAuth) => {
-  const resp = await fetch(url, opts);
-  if (!resp.ok && (resp.status === 401 || resp.status === 403) && basicAuth && incomingAuth) {
-    const retryHeaders = { ...(opts.headers || {}), Authorization: basicAuth };
-    return fetch(url, { ...opts, headers: retryHeaders });
+const fetchActorId = async (wpBase, incomingAuth) => {
+  if (!incomingAuth || typeof incomingAuth !== "string") {
+    return null;
   }
-  return resp;
+  if (!incomingAuth.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+  try {
+    const resp = await fetch(`${wpBase}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: incomingAuth }
+    });
+    return resp;
 };
 
 export default async function handler(req, res) {
@@ -68,13 +73,15 @@ export default async function handler(req, res) {
       if (!payload.text) {
         return res.status(400).json({ error: "text required" });
       }
+      const actorId = await fetchActorId(WP_BASE, incomingAuth);
       const resp = await withFallback(
         baseEndpoint,
         {
           method: "POST",
           headers: {
             Authorization: authHeader,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...(actorId ? { "X-Flatmate-Actor": String(actorId) } : {})
           },
           body: JSON.stringify(payload)
         },
@@ -89,11 +96,15 @@ export default async function handler(req, res) {
       if (!commentId) {
         return res.status(400).json({ error: "commentId required" });
       }
+      const actorId = await fetchActorId(WP_BASE, incomingAuth);
       const resp = await withFallback(
         `${baseEndpoint}/${encodeURIComponent(commentId)}`,
         {
           method: "DELETE",
-          headers: { Authorization: authHeader }
+          headers: {
+            Authorization: authHeader,
+            ...(actorId ? { "X-Flatmate-Actor": String(actorId) } : {})
+          }
         },
         basicAuth,
         incomingAuth

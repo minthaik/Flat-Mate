@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 
-export default function OnboardingScreen({ me, actions }) {
+export default function OnboardingScreen({ me, actions, authToken }) {
   const [houseName, setHouseName] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
   async function handleCreate() {
     if (!houseName.trim()) return;

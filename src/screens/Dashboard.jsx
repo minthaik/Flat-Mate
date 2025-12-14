@@ -40,7 +40,8 @@ export default function Dashboard({
   houseGuests,
   todoLists,
   houseExpenses = [],
-  actions
+  actions,
+  authToken
 }) {
   const [dndDate, setDndDate] = useState("");
   const [dndTime, setDndTime] = useState("");
@@ -56,6 +57,9 @@ export default function Dashboard({
     return stored || "HOME";
   });
   const remoteSyncKey = useRef(null);
+  const [communityPosts, setCommunityPosts] = useState([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityError, setCommunityError] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -122,14 +126,13 @@ export default function Dashboard({
   }, [me?.statusNote]);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    if (!token || !actions?.syncRemoteHouses) return;
-    const key = `${token}:${house?.id || "none"}`;
+    if (!authToken || !actions?.syncRemoteHouses) return;
+    const key = `${authToken}:${house?.id || "none"}`;
     if (remoteSyncKey.current === key) return;
     remoteSyncKey.current = key;
     let aborted = false;
     fetch("/api/wp-houses", {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     })
       .then(async resp => {
         const data = await resp.json().catch(() => []);
@@ -140,7 +143,7 @@ export default function Dashboard({
     return () => {
       aborted = true;
     };
-  }, [actions?.syncRemoteHouses, house?.id]);
+  }, [actions?.syncRemoteHouses, authToken, house?.id]);
 
   function saveStatus(status, note = statusNote) {
     if (!me) return;
@@ -170,6 +173,42 @@ export default function Dashboard({
     list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return list.slice(0, 3);
   }, [houseExpenses]);
+
+  useEffect(() => {
+    let ignore = false;
+    async function fetchCommunityPreview() {
+      if (!house?.id) {
+        setCommunityPosts([]);
+        return;
+      }
+      setCommunityLoading(true);
+      setCommunityError("");
+      try {
+        const resp = await fetch(
+          `/api/wp-posts?houseId=${encodeURIComponent(house.id)}&per_page=2&withComments=false`,
+          authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined
+        );
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data?.error || "Failed to load posts");
+        }
+        if (ignore) return;
+        const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        setCommunityPosts(items);
+      } catch (err) {
+        if (!ignore) {
+          setCommunityError(err.message || "Unable to load community posts");
+          setCommunityPosts([]);
+        }
+      } finally {
+        if (!ignore) setCommunityLoading(false);
+      }
+    }
+    fetchCommunityPreview();
+    return () => {
+      ignore = true;
+    };
+  }, [authToken, house?.id]);
 
   function remainingDnd(u) {
     if (!u || u.status !== "DND" || !u.dndUntil) return null;
@@ -345,12 +384,104 @@ export default function Dashboard({
               onAction={() => setTab("COMMUNITY")}
               panelStyle={{ background: "linear-gradient(135deg, #ecf5ff 0%, #f6fffb 100%)", border: "1px solid rgba(15,102,191,0.16)" }}
             >
-              <div className="stack" style={{ gap: 8 }}>
-                <div className="small">
-                  Share updates with a photo or start a conversation. Head to the Community feed to post.
-                </div>
-                <button className="btn secondary small" onClick={() => setTab("COMMUNITY")}>
-                  Open community feed
+              <div className="stack" style={{ gap: 12 }}>
+                {communityLoading && <div className="small muted">Loading latest posts...</div>}
+                {communityError && (
+                  <div className="small" style={{ color: "var(--md-sys-color-danger)" }}>
+                    {communityError}
+                  </div>
+                )}
+                {!communityLoading && !communityError && communityPosts.length === 0 && (
+                  <div className="small">No posts yet. Be the first to share an update!</div>
+                )}
+                {communityPosts.map(post => {
+                  const isNew =
+                    post?.createdAt &&
+                    Date.now() - new Date(post.createdAt).getTime() < 24 * 60 * 60 * 1000;
+                  const postAuthorWpId = post.author?.id ?? post.authorId ?? null;
+                  const authorProfile =
+                    (postAuthorWpId &&
+                      houseUsers?.find(u => {
+                        const candidate = u.wpId ?? u.wp_user_id ?? u.wpUserId;
+                        if (candidate === undefined || candidate === null) return false;
+                        return String(candidate) === String(postAuthorWpId);
+                      })) ||
+                    null;
+                  const displayName = authorProfile?.name || post.author?.name || "Housemate";
+                  const avatarPresetId = authorProfile?.avatarPreset || null;
+                  const fallbackPreset = avatarPresetId
+                    ? AVATAR_PRESETS.find(p => p.id === avatarPresetId)
+                    : null;
+                  const avatarSrc = authorProfile?.photo || fallbackPreset?.src || post.author?.photo || null;
+                  const avatarLetter = displayName.trim().charAt(0).toUpperCase();
+                  const avatarBg = authorProfile?.avatarColor || "var(--md-sys-color-primary-container)";
+                  return (
+                    <div key={post.id} className="card" style={{ padding: 12 }}>
+                      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div
+                            className="avatar tiny"
+                            aria-hidden="true"
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: avatarSrc ? "transparent" : avatarBg,
+                              color: avatarSrc ? "transparent" : "var(--md-sys-color-on-primary-container)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 600
+                            }}
+                          >
+                            {avatarSrc ? (
+                              <img
+                                src={avatarSrc}
+                                alt=""
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+                              />
+                            ) : (
+                              avatarLetter || "?"
+                            )}
+                          </div>
+                          <span className="small" style={{ fontSize: 14, fontWeight: 600 }}>
+                            {displayName}
+                          </span>
+                          {isNew && (
+                            <span
+                              className="pill"
+                              style={{
+                                fontSize: 10,
+                                background: "var(--md-sys-color-primary)",
+                                color: "var(--md-sys-color-on-primary)"
+                              }}
+                            >
+                              New
+                            </span>
+                          )}
+                        </div>
+                        <span className="small muted">
+                          {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
+                        </span>
+                      </div>
+                      {post.text && (
+                        <div className="small" style={{ lineHeight: 1.4 }}>
+                          {post.text.length > 120 ? `${post.text.slice(0, 120)}…` : post.text}
+                        </div>
+                      )}
+                      {post.mediaUrl && (
+                        <div style={{ marginTop: 8, borderRadius: 8, overflow: "hidden", border: "1px solid var(--md-sys-color-outline-variant)" }}>
+                          <div style={{ background: `url(${post.mediaUrl}) center/cover`, width: "100%", height: 120 }} aria-hidden="true" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <button
+                  className="btn danger small"
+                  onClick={() => setTab("COMMUNITY")}
+                >
+                  Share something new
                 </button>
               </div>
             </OverviewCard>
@@ -399,6 +530,7 @@ export default function Dashboard({
           me={me}
           house={house}
           houseUsers={houseUsers}
+          authToken={authToken}
           actions={{
             updateProfile: actions.updateProfile,
             leaveHouse: actions.leaveHouse,
@@ -446,6 +578,7 @@ export default function Dashboard({
           me={me}
           house={house}
           houseUsers={houseUsers}
+          authToken={authToken}
           onBack={() => setTab("HOME")}
         />
       )}
@@ -525,7 +658,7 @@ export default function Dashboard({
           <li>
             <a
               href="#more"
-              className="nnav-btn"
+              className="nav-btn"
               onClick={(e) => { e.preventDefault(); setMoreOpen(true); }}
             >
               <span className="nav-icon" aria-hidden="true">
@@ -710,6 +843,3 @@ export default function Dashboard({
     </>
   );
 }
-
-
-

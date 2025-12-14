@@ -1,88 +1,17 @@
 import { SEED_DB } from "./seed";
-import { STORAGE_KEY, uid, nowIso, addDays } from "./utils";
+import { uid, nowIso, addDays, SESSION_STATE_KEY } from "./utils";
+import { pickAdmin, mergeRemoteHouse, detachUserFromOtherHouses, isHouseAdmin } from "../domain/houses";
 
 const DEVICE_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const INVITE_LENGTH = 8;
 
-function pickAdmin(memberIds, fallback) {
-  if (memberIds && memberIds.length > 0) return memberIds[0];
-  return fallback || null;
-}
-
 function findHouseByMember(houses, userId) {
   return houses.find(h => h.memberIds.includes(userId)) || null;
 }
 
-function normalizeEmail(email) {
-  return typeof email === "string" ? email.toLowerCase().trim() : "";
-}
-
-function remoteUserKey(member) {
-  if (!member) return null;
-  const raw = member.wp_user_id ?? member.wpId ?? member.user_id ?? member.id;
-  if (raw === undefined || raw === null) return null;
-  return String(raw);
-}
-
-function remoteUserId(member) {
-  const raw = member?.wp_user_id ?? member?.wpId ?? member?.user_id ?? member?.id;
-  if (raw === undefined || raw === null) return null;
-  const parsed = Number(raw);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function ensureRemoteUser(users, member, houseId) {
-  if (!member) return { users, userId: null };
-  const targetEmail = normalizeEmail(member.email);
-  const targetWpId = remoteUserId(member);
-  const normalizedStatus = (member.status || "HOME").toUpperCase();
-  const existingIndex = users.findIndex(u => {
-    if (targetWpId && u.wpId && u.wpId === targetWpId) return true;
-    if (targetEmail && normalizeEmail(u.email) === targetEmail) return true;
-    return false;
-  });
-  if (existingIndex >= 0) {
-    const current = users[existingIndex];
-    const updated = {
-      ...current,
-      name: member.name || current.name,
-      wpId: current.wpId || targetWpId,
-      houseId: houseId || current.houseId,
-      status: normalizedStatus || current.status || "HOME"
-    };
-    if (
-      updated.name === current.name &&
-      updated.wpId === current.wpId &&
-      updated.houseId === current.houseId &&
-      updated.status === current.status
-    ) {
-      return { users, userId: current.id };
-    }
-    const next = [...users];
-    next[existingIndex] = updated;
-    return { users: next, userId: updated.id };
-  }
-  const fallbackEmail =
-    member.email ||
-    (targetWpId ? `user${targetWpId}@remote.local` : `member-${uid("wp")}@remote.local`);
-  const newUser = {
-    id: uid("user"),
-    name: member.name || fallbackEmail.split("@")[0],
-    email: fallbackEmail,
-    houseId,
-    status: normalizedStatus,
-    dndUntil: null,
-    tagline: "",
-    avatarColor: "#7ea0ff",
-    avatarPreset: null,
-    notifications: { push: true, email: false },
-    paypal: "",
-    venmo: "",
-    phone: "",
-    wpId: targetWpId,
-  };
-  return { users: [...users, newUser], userId: newUser.id };
+function hasHouseAdminRights(house, user) {
+  return isHouseAdmin(user, house);
 }
 
 function ensureDndUntil(until) {
@@ -128,7 +57,13 @@ function normalizeDb(db) {
     const adminId = h.adminId || pickAdmin(h.memberIds, null);
     const inviteCode = h.inviteCode || genInviteCode(existingCodes);
     existingCodes.add(inviteCode);
-    return { ...h, adminId, inviteCode, currency: h.currency || "USD" };
+    return {
+      ...h,
+      adminId,
+      inviteCode,
+      currency: h.currency || "USD",
+      adminWpId: h.adminWpId ?? null
+    };
   });
   return {
     ...SEED_DB,
@@ -144,20 +79,23 @@ function normalizeDb(db) {
 }
 
 export function loadInitial() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
+  if (typeof window !== "undefined") {
     try {
-      const parsed = JSON.parse(saved);
-      if (parsed?.db && parsed?.view) {
-        return {
-          ...parsed,
-          db: normalizeDb(parsed.db),
-          theme: "light" // force light as default
-        };
+      const saved = sessionStorage.getItem(SESSION_STATE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.db && parsed?.view) {
+          return {
+            ...parsed,
+            db: normalizeDb(parsed.db),
+            toast: null,
+            leftHouseIds: Array.isArray(parsed.leftHouseIds) ? parsed.leftHouseIds : []
+          };
+        }
       }
     } catch {}
   }
-  return { db: SEED_DB, currentUserId: null, view: "AUTH", toast: null, theme: "light" };
+  return { db: SEED_DB, currentUserId: null, view: "AUTH", toast: null, theme: "light", leftHouseIds: [] };
 }
 
 function toast(state, msg) {
@@ -186,53 +124,6 @@ function nextAssignee(chore) {
   if (rotation.length === 0) return { assigneeId: null, rotationIndex: 0 };
   const nextIndex = (Number(chore.rotationIndex || 0) + 1) % rotation.length;
   return { assigneeId: rotation[nextIndex], rotationIndex: nextIndex };
-}
-
-function mergeRemoteHouse(remote, users, fallbackHouse, meId) {
-  if (!remote) return { users, house: fallbackHouse };
-  const houseId = remote.id || remote.houseId;
-  if (!houseId) return { users, house: fallbackHouse };
-  const members = Array.isArray(remote.members) ? remote.members : [];
-  let workingUsers = users;
-  const memberIds = new Set();
-  const remoteIdMap = new Map();
-  members.forEach(member => {
-    const result = ensureRemoteUser(workingUsers, member, houseId);
-    workingUsers = result.users;
-    if (result.userId) {
-      memberIds.add(result.userId);
-      const key = remoteUserKey(member);
-      if (key) remoteIdMap.set(key, result.userId);
-    }
-  });
-  if (memberIds.size === 0 && fallbackHouse?.memberIds) {
-    fallbackHouse.memberIds.forEach(id => memberIds.add(id));
-  }
-  if (meId && !memberIds.has(meId)) {
-    memberIds.add(meId);
-  }
-  const adminRemote = members.find(m => (m.role || "").toLowerCase() === "admin");
-  let adminId = fallbackHouse?.adminId || null;
-  if (adminRemote) {
-    const key = remoteUserKey(adminRemote);
-    if (key && remoteIdMap.has(key)) {
-      adminId = remoteIdMap.get(key);
-    }
-  }
-  if (!adminId) {
-    adminId = pickAdmin(Array.from(memberIds), fallbackHouse?.adminId || null);
-  }
-  const inviteCode = remote.invite_code || remote.inviteCode || fallbackHouse?.inviteCode || "";
-  const currency = (remote.currency || fallbackHouse?.currency || "USD").toUpperCase();
-  const house = {
-    id: houseId,
-    name: remote.name || fallbackHouse?.name || "House",
-    inviteCode,
-    currency,
-    memberIds: Array.from(memberIds),
-    adminId
-  };
-  return { users: workingUsers, house };
 }
 
 export function reducer(state, action) {
@@ -291,6 +182,7 @@ export function reducer(state, action) {
       if (!name) return toast(state, "House name required.");
       const meId = state.currentUserId;
       if (!meId) return state;
+      const me = state.db.users.find(u => u.id === meId);
 
       const existingCodes = new Set(state.db.houses.map(h => h.inviteCode));
       const houseId = payload.id || payload.houseId || uid("house");
@@ -302,7 +194,8 @@ export function reducer(state, action) {
         inviteCode,
         currency,
         memberIds: [meId],
-        adminId: meId
+        adminId: meId,
+        adminWpId: me?.wpId ?? null
       };
 
       const users = state.db.users.map(u =>
@@ -312,101 +205,44 @@ export function reducer(state, action) {
       return toast({
         ...state,
         db: { ...state.db, houses: [...state.db.houses, newHouse], users },
+        leftHouseIds: (state.leftHouseIds || []).filter(id => id !== houseId),
         view: "DASHBOARD"
       }, "House created.");
     }
 
     case "JOIN_HOUSE": {
       const payload = action.payload || {};
-      const code = String(payload.inviteCode || action.code || "").trim();
+      const code = String(payload.inviteCode || action.code || "").trim().toUpperCase();
       const meId = state.currentUserId;
       if (!meId) return state;
 
-      let house = null;
-      if (payload.house) {
-        house = {
-          id: payload.house.id || payload.house.houseId,
-          name: payload.house.name,
-          inviteCode: payload.house.invite_code || payload.house.inviteCode || code,
-          currency: payload.house.currency || "USD",
-          members: payload.house.members || []
-        };
-      } else {
-        house = state.db.houses.find(h => h.inviteCode === code);
-      }
-      if (!house || !house.id) return toast(state, "Invalid invite code.");
-
-      const remoteMembers = Array.isArray(payload.members)
+      const remoteSource = payload.house || {};
+      const remoteMembers = Array.isArray(remoteSource.members)
+        ? remoteSource.members
+        : Array.isArray(payload.members)
         ? payload.members
-        : Array.isArray(house.members)
-        ? house.members
         : [];
-      const existing = state.db.houses.find(h => h.id === house.id);
-      let users = state.db.users;
-      const memberIdsSet = new Set(existing?.memberIds || []);
-      const remoteIdMap = new Map();
-      remoteMembers.forEach(member => {
-        const result = ensureRemoteUser(users, member, house.id);
-        users = result.users;
-        if (result.userId) {
-          memberIdsSet.add(result.userId);
-          const key = remoteUserKey(member);
-          if (key) remoteIdMap.set(key, result.userId);
-        }
-      });
-      memberIdsSet.add(meId);
-
-      const memberIds = Array.from(memberIdsSet);
-      const baseHouse = existing
-        ? { ...existing }
-        : {
-            id: house.id,
-            name: house.name,
-            inviteCode: house.inviteCode,
-            currency: house.currency || "USD",
-            memberIds,
-            adminId: null
-          };
-      baseHouse.name = house.name || baseHouse.name;
-      baseHouse.inviteCode = house.inviteCode || baseHouse.inviteCode;
-      baseHouse.currency = (house.currency || baseHouse.currency || "USD").toUpperCase();
-      baseHouse.memberIds = memberIds;
-
-  const adminRemote = remoteMembers.find(m => (m.role || "").toLowerCase() === "admin");
-  let adminId = baseHouse.adminId || null;
-  const adminWpId = remote.admin_user_id || remote.adminUserId || remote?.admin_member?.wp_user_id;
-  if (!adminId && adminWpId) {
-    const numericWpId = Number(adminWpId);
-    const match = workingUsers.find(u => u.wpId && !Number.isNaN(numericWpId) && u.wpId === numericWpId);
-    if (match) {
-      adminId = match.id;
-    }
-  }
-  if (!adminId && adminRemote) {
-    const key = remoteUserKey(adminRemote);
-    if (key && remoteIdMap.has(key)) {
-      adminId = remoteIdMap.get(key);
-    } else if (adminRemote.email) {
-      const match = workingUsers.find(u => normalizeEmail(u.email) === normalizeEmail(adminRemote.email));
-      if (match) adminId = match.id;
-    }
-  }
-  if (!adminId && remoteMembers.length === 0 && !adminWpId && !baseHouse.adminId) {
-    adminId = meId;
-  }
-      baseHouse.adminId = adminId || baseHouse.adminId || pickAdmin(memberIds, null);
-
-      const houses = existing
-        ? state.db.houses.map(h => (h.id === baseHouse.id ? baseHouse : h))
-        : [...state.db.houses, baseHouse];
-
-      const normalizedUsers = users.map(u =>
-        u.id === meId ? { ...u, houseId: baseHouse.id } : u
+      const remoteHouse = {
+        ...remoteSource,
+        id: remoteSource.id || remoteSource.houseId || payload.houseId,
+        invite_code: remoteSource.invite_code || remoteSource.inviteCode || code,
+        currency: remoteSource.currency || "USD",
+        members: remoteMembers
+      };
+      if (!remoteHouse.id) return toast(state, "Invalid invite code.");
+      const existing = state.db.houses.find(h => h.id === remoteHouse.id);
+      const { users: mergedUsers, house } = mergeRemoteHouse(remoteHouse, state.db.users, existing, meId);
+      if (!house) return toast(state, "Unable to load house data.");
+      const otherHouses = detachUserFromOtherHouses(state.db.houses, meId, house.id, mergedUsers);
+      const houses = [...otherHouses.filter(h => h.id !== house.id), house];
+      const normalizedUsers = mergedUsers.map(u =>
+        u.id === meId ? { ...u, houseId: house.id } : u
       );
 
       return toast({
         ...state,
         db: { ...state.db, houses, users: normalizedUsers },
+        leftHouseIds: (state.leftHouseIds || []).filter(id => id !== house.id),
         view: "DASHBOARD"
       }, "Joined house.");
     }
@@ -415,10 +251,16 @@ export function reducer(state, action) {
       const remoteHouses = Array.isArray(action.houses) ? action.houses : [];
       const meId = state.currentUserId;
       if (!meId || remoteHouses.length === 0) return state;
+      const ignoredHouseIds = new Set(state.leftHouseIds || []);
+      const filteredRemote = remoteHouses.filter(h => {
+        const hid = h?.id || h?.houseId;
+        return !hid || !ignoredHouseIds.has(hid);
+      });
+      if (filteredRemote.length === 0) return state;
       let users = state.db.users;
       const remoteIds = new Set();
       const remoteMap = new Map();
-      remoteHouses.forEach(remote => {
+      filteredRemote.forEach(remote => {
         const existing = state.db.houses.find(h => h.id === (remote?.id || remote?.houseId));
         const { users: mergedUsers, house } = mergeRemoteHouse(remote, users, existing, meId);
         users = mergedUsers;
@@ -584,6 +426,7 @@ export function reducer(state, action) {
       if (houseForUser && houseForUser.adminId === userId && houseForUser.memberIds.length > 1) {
         return toast(state, "Transfer house admin before leaving.");
       }
+      const leavingHouseId = houseForUser?.id ?? null;
       const users = state.db.users.map(u =>
         u.id === userId ? { ...u, houseId: null, status: "HOME", dndUntil: null } : u
       );
@@ -591,10 +434,43 @@ export function reducer(state, action) {
         if (!h.memberIds.includes(userId)) return h;
         const memberIds = h.memberIds.filter(id => id !== userId);
         const adminId = h.adminId === userId ? pickAdmin(memberIds, null) : h.adminId;
-        return { ...h, memberIds, adminId };
+        let adminWpId = h.adminWpId;
+        if (h.adminId === userId) {
+          const nextAdmin = users.find(u => u.id === adminId);
+          adminWpId = nextAdmin?.wpId ?? null;
+        }
+        return { ...h, memberIds, adminId, adminWpId };
       });
       houses = houses.filter(h => (h.memberIds || []).length > 0);
-      return toast({ ...state, db: { ...state.db, users, houses }, view: "ONBOARDING" }, "Left house.");
+      if (leavingHouseId) {
+        houses = houses.filter(h => h.id !== leavingHouseId);
+      }
+
+      const filterHouseData = (collection) => {
+        if (!leavingHouseId) return collection || [];
+        return (collection || []).filter(item => {
+          const hid = item?.houseId ?? item?.house_id ?? null;
+          return hid !== leavingHouseId;
+        });
+      };
+
+      const cleanedDb = {
+        ...state.db,
+        users,
+        houses,
+        chores: filterHouseData(state.db.chores),
+        guests: filterHouseData(state.db.guests),
+        notes: filterHouseData(state.db.notes),
+        expenses: filterHouseData(state.db.expenses),
+        todoLists: (state.db.todoLists || []).filter(list => {
+          if (!leavingHouseId) return true;
+          if (list?.houseId && list.houseId === leavingHouseId) return false;
+          return true;
+        })
+      };
+      const leftSet = new Set(state.leftHouseIds || []);
+      if (leavingHouseId) leftSet.add(leavingHouseId);
+      return toast({ ...state, db: cleanedDb, view: "ONBOARDING", leftHouseIds: Array.from(leftSet) }, "Left house.");
     }
 
     case "TRANSFER_ADMIN": {
@@ -602,10 +478,19 @@ export function reducer(state, action) {
       if (!fromUserId || !toUserId) return state;
       const house = findHouseByMember(state.db.houses, fromUserId);
       if (!house) return state;
-      if (house.adminId !== fromUserId) return toast(state, "Only the house admin can transfer admin.");
+      const fromUser = state.db.users.find(u => u.id === fromUserId);
+      if (!hasHouseAdminRights(house, fromUser)) return toast(state, "Only the house admin can transfer admin.");
       if (!house.memberIds.includes(toUserId)) return toast(state, "Target must be in this house.");
       if (fromUserId === toUserId) return state;
-      const houses = state.db.houses.map(h => h.id === house.id ? { ...h, adminId: toUserId } : h);
+      const targetUser = state.db.users.find(u => u.id === toUserId);
+      const houses = state.db.houses.map(h => {
+        if (h.id !== house.id) return h;
+        return {
+          ...h,
+          adminId: toUserId,
+          adminWpId: targetUser?.wpId ?? h.adminWpId ?? null
+        };
+      });
       return toast({ ...state, db: { ...state.db, houses } }, "Admin transferred.");
     }
 
@@ -614,7 +499,8 @@ export function reducer(state, action) {
       if (!userId || !houseId) return state;
       const house = state.db.houses.find(h => h.id === houseId);
       if (!house) return state;
-      if (house.adminId !== userId) return toast(state, "Only the house admin can regenerate the code.");
+      const user = state.db.users.find(u => u.id === userId);
+      if (!hasHouseAdminRights(house, user)) return toast(state, "Only the house admin can regenerate the code.");
       const existing = new Set(state.db.houses.filter(h => h.id !== houseId).map(h => h.inviteCode));
       const inviteCode = (providedCode || "").trim().toUpperCase() || genInviteCode(existing);
       const houses = state.db.houses.map(h => h.id === houseId ? { ...h, inviteCode } : h);
@@ -627,7 +513,8 @@ export function reducer(state, action) {
       if (!userId || !houseId || !cleanName) return state;
       const house = state.db.houses.find(h => h.id === houseId);
       if (!house) return state;
-      if (house.adminId !== userId) return toast(state, "Only the house admin can rename the house.");
+      const user = state.db.users.find(u => u.id === userId);
+      if (!hasHouseAdminRights(house, user)) return toast(state, "Only the house admin can rename the house.");
       const houses = state.db.houses.map(h => h.id === houseId ? { ...h, name: cleanName } : h);
       return toast({ ...state, db: { ...state.db, houses } }, "House renamed.");
     }
@@ -638,7 +525,8 @@ export function reducer(state, action) {
       if (!userId || !houseId || !clean) return state;
       const house = state.db.houses.find(h => h.id === houseId);
       if (!house) return state;
-      if (house.adminId !== userId) return toast(state, "Only the house admin can change currency.");
+      const user = state.db.users.find(u => u.id === userId);
+      if (!hasHouseAdminRights(house, user)) return toast(state, "Only the house admin can change currency.");
       if (house.currency === clean) return state;
       const houses = state.db.houses.map(h => h.id === houseId ? { ...h, currency: clean } : h);
       return toast({ ...state, db: { ...state.db, houses } }, "Currency updated.");

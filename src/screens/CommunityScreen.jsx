@@ -12,12 +12,7 @@ const randomId = () => {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const getToken = () => {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-};
-
-export default function CommunityScreen({ me, house, houseUsers = [], onBack }) {
+export default function CommunityScreen({ me, house, houseUsers = [], onBack, authToken }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,15 +26,22 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack }) 
   const [commentLoading, setCommentLoading] = useState({});
   const [threadLoading, setThreadLoading] = useState({});
   const [deletingPostId, setDeletingPostId] = useState(null);
-  const token = getToken();
   const houseId = house?.id;
   const isHouseAdmin = domainIsHouseAdmin(me, house);
 
   const houseUsersByWp = useMemo(() => {
     const map = new Map();
     houseUsers.forEach(user => {
-      if (!user?.wpId) return;
-      map.set(String(user.wpId), user);
+      const candidates = [
+        user?.wpId,
+        user?.wp_id,
+        user?.wpUserId,
+        user?.wp_user_id
+      ];
+      candidates.forEach(val => {
+        if (val === undefined || val === null) return;
+        map.set(String(val), user);
+      });
     });
     return map;
   }, [houseUsers]);
@@ -48,14 +50,38 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack }) 
     (wpId, fallback = {}) => {
       const key = wpId ? String(wpId) : null;
       const localUser = key ? houseUsersByWp.get(key) : null;
-      const avatar = localUser?.photo || fallback.avatar || DEFAULT_AVATAR;
-      const name = fallback.name || localUser?.name || "Housemate";
-      const email = fallback.email || localUser?.email || "";
+
+      const fallbackAvatar =
+        fallback.avatar ||
+        fallback.avatarUrl ||
+        fallback.avatarURL ||
+        fallback.avatar_url ||
+        fallback.avatar_urls?.["48"] ||
+        fallback.author_avatar_urls?.["48"] ||
+        DEFAULT_AVATAR;
+
+      const fallbackName =
+        localUser?.name ||
+        fallback.name ||
+        fallback.display_name ||
+        fallback.displayName ||
+        fallback.author_name ||
+        fallback.username ||
+        fallback.user_login ||
+        "Housemate";
+
+      const fallbackEmail =
+        localUser?.email ||
+        fallback.email ||
+        fallback.author_email ||
+        "";
+
+      const avatar = localUser?.photo || fallbackAvatar;
       const isAdmin = localUser ? domainIsHouseAdmin(localUser, house) : Boolean(fallback.is_admin);
       return {
         id: key,
-        name,
-        email,
+        name: fallbackName,
+        email: fallbackEmail,
         avatar,
         isAdmin
       };
@@ -121,7 +147,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack }) 
     [houseId, hydrateAuthor, normalizeComment]
   );
 
-  const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
+  const headers = useMemo(() => (authToken ? { Authorization: `Bearer ${authToken}` } : {}), [authToken]);
 
   const fetchPosts = useCallback(
     async (nextPage = 1, append = false) => {
@@ -502,7 +528,10 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack }) 
                 </div>
               )}
 
-              <div className="row" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+              <div
+                className="row"
+                style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", margin: "8px 0" }}
+              >
                 <span className="small muted">
                   {post.commentCount === 0
                     ? "No comments yet"

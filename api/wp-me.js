@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (!authHeader) return res.status(401).json({ error: "Authorization header required" });
 
   try {
-    const resp = await fetch(`${WP_BASE.replace(/\/$/, "")}/wp-json/wp/v2/users/me`, {
+    const resp = await fetch(`${WP_BASE.replace(/\/$/, "")}/wp-json/wp/v2/users/me?context=edit`, {
       headers: { Authorization: authHeader }
     });
     const data = await resp.json().catch(() => ({}));

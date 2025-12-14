@@ -1,4 +1,4 @@
-export const STORAGE_KEY = "flatmate_m3_chore_mvp_v1";
+export const SESSION_STATE_KEY = "flatmate_session_state_v1";
 
 export function uid(prefix = "id") {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36).slice(-4)}`;

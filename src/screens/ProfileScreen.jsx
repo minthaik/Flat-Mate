@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isHouseAdmin } from "../domain/houses";
 
 const PRESETS = [
   { id: "happy", label: "Happy", src: "/avatars/avatar-happy.svg", accent: "#7ea0ff" },
@@ -11,7 +12,7 @@ const PRESETS = [
 
 const DEFAULT_PRESET_ID = PRESETS[0].id;
 
-export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
+export default function ProfileScreen({ me, house, houseUsers = [], actions, authToken }) {
   const [name, setName] = useState("");
   const [tagline, setTagline] = useState("");
   const [avatarColor, setAvatarColor] = useState(PRESETS.find(p => p.id === DEFAULT_PRESET_ID)?.accent || "#7ea0ff");
@@ -29,8 +30,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
   const [houseError, setHouseError] = useState("");
   const [houseSaving, setHouseSaving] = useState(false);
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
   useEffect(() => {
     if (!me) return;
@@ -212,8 +212,8 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions }) {
       .finally(() => setHouseSaving(false));
   }
 
-  const isAdmin = house?.adminId === me.id;
-  const adminUser = houseUsers.find(u => u.id === house?.adminId) || null;
+  const isAdmin = isHouseAdmin(me, house);
+  const adminUser = houseUsers.find(u => isHouseAdmin(u, house)) || null;
   const canSaveName = house && houseName.trim() && houseName.trim() !== house.name;
   const canSaveCurrency = house && (houseCurrency || "USD").toUpperCase() !== (house.currency || "USD");
 

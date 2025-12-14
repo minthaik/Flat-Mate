@@ -10,11 +10,11 @@ const getBaseUrl = () => (process.env.WP_BASE_URL || "https://backend.paxbud.com
 
 const buildAuthHeader = (req) => {
   const incoming = req.headers.authorization;
-  const wpUser = process.env.WP_USER;
-  const wpPass = process.env.WP_APP_PW;
-  const fallback = wpUser && wpPass ? `Basic ${Buffer.from(`${wpUser}:${wpPass}`).toString("base64")}` : null;
+    const wpUser = null;
+  const wpPass = null;
+  const fallback = null;
   return {
-    header: incoming || fallback,
+    header: incoming,
     basic: fallback,
     incoming
   };
@@ -22,10 +22,6 @@ const buildAuthHeader = (req) => {
 
 const withFallback = async (url, opts, basicAuth, incomingAuth) => {
   const resp = await fetch(url, opts);
-  if (!resp.ok && (resp.status === 401 || resp.status === 403) && basicAuth && incomingAuth) {
-    const retryHeaders = { ...(opts.headers || {}), Authorization: basicAuth };
-    return fetch(url, { ...opts, headers: retryHeaders });
-  }
   return resp;
 };
 
@@ -39,6 +35,32 @@ const parseResponse = async (resp) => {
     return JSON.parse(text);
   } catch {
     return { message: text };
+  }
+};
+
+const fetchActorId = async (wpBase, incomingAuth) => {
+  if (!incomingAuth || typeof incomingAuth !== "string") {
+    return null;
+  }
+  if (!incomingAuth.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+  try {
+    const resp = await fetch(`${wpBase}/wp-json/wp/v2/users/me`, {
+      headers: { Authorization: incomingAuth }
+    });
+    if (!resp.ok) {
+      return null;
+    }
+    const data = await resp.json().catch(() => null);
+    const id = data?.id;
+    if (typeof id === "number" && Number.isFinite(id)) {
+      return id;
+    }
+    const parsed = parseInt(id, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
   }
 };
 
@@ -84,6 +106,7 @@ export default async function handler(req, res) {
       if (!houseId) {
         return res.status(400).json({ error: "houseId required" });
       }
+      const actorId = await fetchActorId(WP_BASE, incomingAuth);
       const rawBody = await buffer(req);
       const resp = await withFallback(
         `${WP_BASE}/wp-json/flatmate/v1/houses/${encodeURIComponent(houseId)}/posts`,
@@ -91,7 +114,8 @@ export default async function handler(req, res) {
           method: "POST",
           headers: {
             Authorization: authHeader,
-            "Content-Type": req.headers["content-type"] || "application/json"
+            "Content-Type": req.headers["content-type"] || "application/json",
+            ...(actorId ? { "X-Flatmate-Actor": String(actorId) } : {})
           },
           body: rawBody
         },
@@ -107,11 +131,15 @@ export default async function handler(req, res) {
       if (!postId) {
         return res.status(400).json({ error: "postId required" });
       }
+      const actorId = await fetchActorId(WP_BASE, incomingAuth);
       const resp = await withFallback(
         `${WP_BASE}/wp-json/flatmate/v1/posts/${encodeURIComponent(postId)}`,
         {
           method: "DELETE",
-          headers: { Authorization: authHeader }
+          headers: {
+            Authorization: authHeader,
+            ...(actorId ? { "X-Flatmate-Actor": String(actorId) } : {})
+          }
         },
         basicAuth,
         incomingAuth
