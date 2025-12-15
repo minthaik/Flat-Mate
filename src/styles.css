@@ -810,8 +810,9 @@ select {
 
 .community-title {
   margin: 0;
-  font-size: clamp(24px, 5vw, 34px);
-  font-weight: 700;
+  font-size: clamp(20px, 4vw, 26px);
+  line-height: 1.2;
+  font-weight: 600;
 }
 
 .community-subtitle {
@@ -825,67 +826,59 @@ select {
   border-radius: var(--radius-lg);
 }
 
-.community-hero {
-  position: relative;
-  overflow: hidden;
-  background: radial-gradient(circle at top right, rgba(122, 223, 122, 0.2), transparent 55%),
-    linear-gradient(135deg, rgba(15, 68, 170, 0.35), rgba(13, 110, 62, 0.18));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--md-sys-color-on-surface);
+.community-screen__header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.community-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 70%);
-  pointer-events: none;
-}
-
-.community-hero__header,
-.community-hero__stats {
-  position: relative;
-  z-index: 1;
-}
-
-.community-hero__header {
-  display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.community-hero__actions {
+.community-header__actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: flex-end;
-  min-width: 180px;
+}
+
+.community-hero {
+  background: var(--md-sys-color-surface-1);
+  border: 1px solid var(--md-sys-color-outline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.community-hero__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .community-hero__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--space-2);
 }
 
 .community-hero__stat {
   padding: var(--space-3);
   border-radius: var(--radius);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(4, 4, 4, 0.2);
-  backdrop-filter: blur(16px);
+  border: 1px solid var(--md-sys-color-outline);
+  background: var(--md-sys-color-surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .community-hero__value {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .community-composer {
@@ -1194,7 +1187,8 @@ select {
     width: 48px;
     height: 48px;
   }
-  .community-hero__actions {
+  .community-header__actions {
+    width: 100%;
     justify-content: flex-start;
   }
 }
