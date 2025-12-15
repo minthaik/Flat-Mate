@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import AuthScreen from "./screens/AuthScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import Dashboard from "./screens/Dashboard";
@@ -9,13 +9,21 @@ import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests
 import { uid, SESSION_STATE_KEY } from "./store/utils";
 
 const AUTH_TOKEN_KEY = "flatmate_auth_token";
+const normalizeToken = (value) => {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  return trimmed.toLowerCase().startsWith("bearer ") ? trimmed.slice(7).trim() : trimmed;
+};
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial);
-  const [authToken, setAuthToken] = useState(() => {
+  const [authToken, setAuthTokenState] = useState(() => {
     if (typeof window === "undefined") return null;
-    return sessionStorage.getItem(AUTH_TOKEN_KEY);
+    return normalizeToken(sessionStorage.getItem(AUTH_TOKEN_KEY));
   });
+  const setAuthToken = useCallback((token) => {
+    setAuthTokenState(normalizeToken(token));
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", state.theme || "light");
