@@ -215,6 +215,9 @@ export default function AuthScreen({ actions, onAuthToken }) {
                 : "Forgot credentials? Ping your house admin to reset access."}
             </div>
           </form>
+          <div className="auth-footer small muted">
+            © {new Date().getFullYear()} Paxbud. All rights reserved.
+          </div>
         </div>
       </div>
     </section>
