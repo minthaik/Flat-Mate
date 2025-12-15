@@ -105,11 +105,11 @@ export default function AuthScreen({ actions, onAuthToken }) {
     <section className="auth-screen">
       <div className="auth-shell">
         <div className="auth-hero">
-          <div className="auth-logo" aria-hidden="true">
-            <span>FM</span>
+          <div className="auth-logo">
+            <img src="/paxbud-logo.svg" alt="Paxbud logo" />
           </div>
           <div className="auth-hero__text">
-            <p className="eyebrow">Flatmate</p>
+            <p className="eyebrow">Paxbud</p>
             <h1 className="auth-headline">Live better together</h1>
             <p className="small muted">
               Keep bills, chores, and conversations in sync for every roommate. Sign in to open the home base.
