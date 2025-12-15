@@ -12,7 +12,18 @@ const AUTH_TOKEN_KEY = "flatmate_auth_token";
 const normalizeToken = (value) => {
   if (!value) return null;
   const trimmed = String(value).trim();
-  return trimmed.toLowerCase().startsWith("bearer ") ? trimmed.slice(7).trim() : trimmed;
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  const prefixes = ["bearer ", "flatmate "];
+  for (const prefix of prefixes) {
+    if (lower.startsWith(prefix)) {
+      const token = trimmed.slice(prefix.length).trim();
+      if (token) {
+        return token;
+      }
+    }
+  }
+  return trimmed;
 };
 
 export default function App() {
@@ -143,7 +154,7 @@ export default function App() {
     if (remoteSyncRef.current === key) return;
     remoteSyncRef.current = key;
     fetch("/api/wp-houses", {
-      headers: { Authorization: `Bearer ${authToken}` }
+      headers: { Authorization: `Flatmate ${authToken}` }
     })
       .then(async resp => {
         const data = await resp.json().catch(() => []);
@@ -159,7 +170,7 @@ export default function App() {
     async function hydrateFromToken() {
       try {
         const resp = await fetch("/api/wp-me", {
-          headers: { Authorization: `Bearer ${authToken}` }
+          headers: { Authorization: `Flatmate ${authToken}` }
         });
         if (!resp.ok) return;
         const meData = await resp.json().catch(() => null);
