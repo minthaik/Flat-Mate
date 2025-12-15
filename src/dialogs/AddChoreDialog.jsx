@@ -137,7 +137,7 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
         <div className="modal-header">
           <div className="h2">{editingId ? "Edit chore" : "Add chore"}</div>
           <button className="btn icon-only danger" onClick={() => setOpen(false)} aria-label="Close">
-            <span className="material-symbols-outlined">cancel</span>
+            <span className="material-symbols-rounded">cancel</span>
           </button>
         </div>
 
@@ -259,7 +259,7 @@ const AddChoreDialog = forwardRef(function AddChoreDialog({ me, houseUsers, acti
             </div>
             <div className="row" style={{ marginTop: 8 }}>
               <button className="btn ghost small" onClick={addItem}>
-                <span className="material-symbols-outlined" aria-hidden="true">add</span>
+                <span className="material-symbols-rounded" aria-hidden="true">add</span>
                 <span>Add checklist item</span>
               </button>
             </div>

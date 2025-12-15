@@ -211,19 +211,19 @@ export default function App() {
               </div>
               <div className="topbar-right">
                 {!isStandalone && (
-                  <button
-                    className="btn secondary small install-btn"
-                    onClick={triggerInstall}
-                    disabled={!canInstall}
-                    title={canInstall ? "Install this app" : "Install will be ready when your browser allows it"}
-                  >
-                    <span className="material-symbols-outlined" aria-hidden="true">download</span>
-                    <span>Install app</span>
-                  </button>
-                )}
-                {me && (
-                  <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
-                    <span className="material-symbols-outlined">power_settings_new</span>
+                <button
+                  className="btn secondary small install-btn"
+                  onClick={triggerInstall}
+                  disabled={!canInstall}
+                  title={canInstall ? "Install this app" : "Install will be ready when your browser allows it"}
+                >
+                  <span className="material-symbols-rounded" aria-hidden="true">download</span>
+                  <span>Install app</span>
+                </button>
+              )}
+              {me && (
+                <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
+                  <span className="material-symbols-rounded">power_settings_new</span>
                   </button>
                 )}
               </div>
