@@ -106,12 +106,12 @@ export default function AuthScreen({ actions, onAuthToken }) {
       <div className="auth-shell">
         <div className="auth-hero">
           <img className="auth-logo" src="/paxbud-logo.svg" alt="Paxbud logo" />
-          <div className="auth-hero__text">
-            <h1 className="auth-headline">LIVE BETTER TOGETHER</h1>
-            <p className="small muted">
-              Keep bills, chores, and conversations in sync for every roommate. Sign in to open the home base.
-            </p>
-          </div>
+        </div>
+        <div className="auth-hero__text">
+          <h1 className="auth-headline">LIVE BETTER TOGETHER</h1>
+          <p className="auth-tagline small muted">
+            Keep bills, chores, and conversations in sync for every roommate. Sign in to open the home base.
+          </p>
         </div>
 
         <div className="auth-card panel">

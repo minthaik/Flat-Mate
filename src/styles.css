@@ -1169,7 +1169,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 170px;
+  text-align: center;
   margin: 0 auto;
 }
 
@@ -1179,6 +1179,12 @@ select {
   font-weight: 600;
   color: rgba(15, 23, 42, 0.7);
   letter-spacing: 0.1em;
+}
+
+.auth-tagline {
+  margin: 0 auto;
+  max-width: 520px;
+  line-height: 1.4;
 }
 
 .auth-card {
