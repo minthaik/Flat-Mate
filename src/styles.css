@@ -849,18 +849,9 @@ select {
 
 .community-hero__header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.community-hero__eyebrow {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--md-text-secondary);
-  margin: 0 0 4px;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .community-hero__summary-text {
@@ -890,7 +881,7 @@ select {
 .community-hero__item-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .community-hero__label {
@@ -905,6 +896,12 @@ select {
   font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+}
+
+.community-hero__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
 }
 
 .community-composer {

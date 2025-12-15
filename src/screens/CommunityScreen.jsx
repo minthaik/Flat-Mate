@@ -471,20 +471,12 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
 
       <section className="panel community-hero">
         <div className="community-hero__header">
-          <div>
-            <p className="community-hero__eyebrow">Overview</p>
-            <p className="community-hero__summary-text">
-              {houseId
-                ? "Mobile pulse for your house—posts, people, and conversations."
-                : "Invite your house to Flatmate to see live community insights."}
-            </p>
-          </div>
-          {houseId && (
-            <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
-              <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
-              <span>{loading ? "Syncing..." : "Refresh"}</span>
-            </button>
-          )}
+          <div className="panel-title" style={{ margin: 0 }}>Overview</div>
+          <p className="community-hero__summary-text">
+            {houseId
+              ? "Mobile pulse for your house—posts, people, and conversations."
+              : "Invite your house to Flatmate to see live community insights."}
+          </p>
         </div>
         <div className="community-hero__list">
           {heroStats.map(stat => (
@@ -497,6 +489,14 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
             </div>
           ))}
         </div>
+        {houseId && (
+          <div className="community-hero__footer">
+            <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
+              <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+              <span>{loading ? "Syncing..." : "Refresh"}</span>
+            </button>
+          </div>
+        )}
       </section>
 
       <section className="panel community-composer">
