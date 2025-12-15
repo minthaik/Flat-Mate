@@ -198,56 +198,60 @@ export default function App() {
 
   const showTopBar = state.view !== "AUTH";
 
+  const isAuthView = state.view === "AUTH";
+
   return (
-    <div className="app-shell">
-      {showTopBar && (
-        <div className="header-nav">
-          <div className="topbar">
-            <div className="brand-cluster">
-              <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
-            </div>
-            <div className="topbar-right">
-              {!isStandalone && (
-                <button
-                  className="btn secondary small install-btn"
-                  onClick={triggerInstall}
-                  disabled={!canInstall}
-                  title={canInstall ? "Install this app" : "Install will be ready when your browser allows it"}
-                >
-                  <span className="material-symbols-outlined" aria-hidden="true">download</span>
-                  <span>Install app</span>
-                </button>
-              )}
-              {me && (
-                <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
-                  <span className="material-symbols-outlined">power_settings_new</span>
-                </button>
-              )}
+    <div className={isAuthView ? "auth-view" : ""}>
+      <div className="app-shell">
+        {showTopBar && (
+          <div className="header-nav">
+            <div className="topbar">
+              <div className="brand-cluster">
+                <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
+              </div>
+              <div className="topbar-right">
+                {!isStandalone && (
+                  <button
+                    className="btn secondary small install-btn"
+                    onClick={triggerInstall}
+                    disabled={!canInstall}
+                    title={canInstall ? "Install this app" : "Install will be ready when your browser allows it"}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">download</span>
+                    <span>Install app</span>
+                  </button>
+                )}
+                {me && (
+                  <button className="btn icon-only danger" onClick={actions.logout} aria-label="Logout">
+                    <span className="material-symbols-outlined">power_settings_new</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <div style={{ marginTop: 0 }}>
-        {state.view === "AUTH" && <AuthScreen actions={actions} onAuthToken={setAuthToken} />}
-        {state.view === "ONBOARDING" && <OnboardingScreen me={me} actions={actions} authToken={authToken} />}
-        {state.view === "DASHBOARD" && (
-          <Dashboard
-            state={state}
-            me={me}
-            house={house}
-            houseUsers={houseUsers}
-            houseChores={houseChores}
-            houseGuests={houseGuests}
-            todoLists={todoLists}
-            houseExpenses={houseExpenses}
-            actions={actions}
-            authToken={authToken}
-          />
         )}
-      </div>
 
-      <Toast message={state.toast} onClose={actions.dismissToast} />
+        <div style={{ marginTop: 0 }}>
+          {state.view === "AUTH" && <AuthScreen actions={actions} onAuthToken={setAuthToken} />}
+          {state.view === "ONBOARDING" && <OnboardingScreen me={me} actions={actions} authToken={authToken} />}
+          {state.view === "DASHBOARD" && (
+            <Dashboard
+              state={state}
+              me={me}
+              house={house}
+              houseUsers={houseUsers}
+              houseChores={houseChores}
+              houseGuests={houseGuests}
+              todoLists={todoLists}
+              houseExpenses={houseExpenses}
+              actions={actions}
+              authToken={authToken}
+            />
+          )}
+        </div>
+
+        <Toast message={state.toast} onClose={actions.dismissToast} />
+      </div>
     </div>
   );
 }
