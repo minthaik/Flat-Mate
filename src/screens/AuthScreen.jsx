@@ -109,8 +109,7 @@ export default function AuthScreen({ actions, onAuthToken }) {
             <img src="/paxbud-logo.svg" alt="Paxbud logo" />
           </div>
           <div className="auth-hero__text">
-            <p className="eyebrow">Paxbud</p>
-            <h1 className="auth-headline">Live better together</h1>
+            <h1 className="auth-headline">LIVE BETTER TOGETHER</h1>
             <p className="small muted">
               Keep bills, chores, and conversations in sync for every roommate. Sign in to open the home base.
             </p>
