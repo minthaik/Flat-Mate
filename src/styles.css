@@ -828,35 +828,15 @@ select {
 
 .community-screen__heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.community-heading__bar {
-  width: 100%;
+.community-heading__title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  flex-wrap: wrap;
-  margin-top: var(--space-2);
-}
-
-.community-heading__left,
-.community-heading__right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.community-heading__left {
-  flex: 1 1 auto;
-}
-
-.community-heading__right {
-  justify-content: flex-end;
 }
 
 .community-hero {
@@ -867,24 +847,61 @@ select {
   gap: var(--space-3);
 }
 
-.community-hero__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+.community-hero__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.community-hero__eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--md-text-secondary);
+  margin: 0 0 4px;
+}
+
+.community-hero__summary-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--md-text-secondary);
+  line-height: 1.4;
+}
+
+.community-hero__list {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
 }
 
-.community-hero__stat {
+.community-hero__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3);
   border-radius: var(--radius);
   border: 1px solid var(--md-sys-color-outline);
   background: var(--md-sys-color-surface-2);
+}
+
+.community-hero__item-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+
+.community-hero__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--md-text-secondary);
 }
 
 .community-hero__value {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;

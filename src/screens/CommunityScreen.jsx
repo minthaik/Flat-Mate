@@ -458,38 +458,42 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   return (
     <div className="community-screen stack" style={{ gap: 20, paddingTop: 16 }}>
       <div className="community-screen__heading">
-        <div className="section-title">Community feed</div>
-        <div className="community-heading__bar">
-          <div className="community-heading__left">
-            {houseId ? (
-              <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
-                <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
-                <span>{loading ? "Syncing..." : "Refresh"}</span>
-              </button>
-            ) : (
-              <div className="small muted">
-                Create or join a house to unlock this feed.
-              </div>
-            )}
-          </div>
-          <div className="community-heading__right">
-            {onBack && (
-              <button className="btn ghost small" onClick={onBack}>
-                <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-                <span>Back</span>
-              </button>
-            )}
-          </div>
+        <div className="community-heading__title">
+          <div className="section-title">Community feed</div>
+          {onBack && (
+            <button className="btn ghost small" onClick={onBack}>
+              <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+              <span>Back</span>
+            </button>
+          )}
         </div>
       </div>
 
       <section className="panel community-hero">
-        <div className="community-hero__stats">
+        <div className="community-hero__header">
+          <div>
+            <p className="community-hero__eyebrow">Overview</p>
+            <p className="community-hero__summary-text">
+              {houseId
+                ? "Mobile pulse for your house—posts, people, and conversations."
+                : "Invite your house to Flatmate to see live community insights."}
+            </p>
+          </div>
+          {houseId && (
+            <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
+              <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+              <span>{loading ? "Syncing..." : "Refresh"}</span>
+            </button>
+          )}
+        </div>
+        <div className="community-hero__list">
           {heroStats.map(stat => (
-            <div key={stat.id} className="community-hero__stat">
-              <span className="eyebrow">{stat.label}</span>
+            <div key={stat.id} className="community-hero__item">
+              <div className="community-hero__item-text">
+                <span className="community-hero__label">{stat.label}</span>
+                {stat.caption && <span className="small muted">{stat.caption}</span>}
+              </div>
               <div className="community-hero__value">{stat.value}</div>
-              {stat.caption && <span className="small muted">{stat.caption}</span>}
             </div>
           ))}
         </div>
