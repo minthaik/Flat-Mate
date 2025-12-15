@@ -822,6 +822,10 @@ select {
   line-height: 1.5;
 }
 
+.community-screen {
+  gap: var(--space-4);
+}
+
 .community-screen .panel {
   border-radius: var(--radius-lg);
 }

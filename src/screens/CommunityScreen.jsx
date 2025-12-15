@@ -456,7 +456,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const showEmptyState = !loading && posts.length === 0;
 
   return (
-    <div className="community-screen stack" style={{ gap: 20, paddingTop: 16 }}>
+    <div className="community-screen stack">
       <div className="community-screen__heading">
         <div className="community-heading__title">
           <div className="section-title">Community feed</div>
