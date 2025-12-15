@@ -466,7 +466,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
         )}
       </div>
 
-      <div className="stack" style={{ gap: 16 }}>
+      <div className="stack" style={{ gap: 12 }}>
         {posts.length === 0 && (
           <div className="panel">
             {loading ? (
