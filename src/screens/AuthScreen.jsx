@@ -102,81 +102,124 @@ export default function AuthScreen({ actions, onAuthToken }) {
   const onSubmit = isSignup ? handleSignup : handleLogin;
 
   return (
-    <div className="panel">
-      <div className="panel-title">Account</div>
-      <div className="row" style={{ gap: 8, marginBottom: 12 }}>
-        <button
-          type="button"
-          className={`btn small ${!isSignup ? "" : "ghost"}`}
-          onClick={() => setMode("login")}
-          disabled={mode === "login"}
-        >
-          Login
-        </button>
-        <button
-          type="button"
-          className={`btn small ${isSignup ? "" : "ghost"}`}
-          onClick={() => setMode("signup")}
-          disabled={mode === "signup"}
-        >
-          Sign up
-        </button>
-      </div>
-      <form className="stack" onSubmit={onSubmit}>
-        <input
-          className="input"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          placeholder="Username"
-          required
-        />
-        {isSignup && (
-          <>
-            <input
-              className="input"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="Email"
-              required
-            />
-            <div className="row" style={{ gap: 8 }}>
+    <section className="auth-screen">
+      <div className="auth-shell">
+        <div className="auth-hero">
+          <div className="auth-logo" aria-hidden="true">
+            <span>FM</span>
+          </div>
+          <div className="auth-hero__text">
+            <p className="eyebrow">Flatmate</p>
+            <h1 className="auth-headline">Live better together</h1>
+            <p className="small muted">
+              Keep bills, chores, and conversations in sync for every roommate. Sign in to open the home base.
+            </p>
+          </div>
+        </div>
+
+        <div className="auth-card panel">
+          <div className="auth-toggle" role="tablist" aria-label="Authentication mode">
+            <button
+              type="button"
+              className={`auth-toggle__btn ${!isSignup ? "is-active" : ""}`}
+              onClick={() => setMode("login")}
+              aria-pressed={!isSignup}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              className={`auth-toggle__btn ${isSignup ? "is-active" : ""}`}
+              onClick={() => setMode("signup")}
+              aria-pressed={isSignup}
+            >
+              Sign up
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={onSubmit}>
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="auth-username">Username</label>
               <input
+                id="auth-username"
                 className="input"
-                value={firstName}
-                onChange={e => setFirstName(e.target.value)}
-                placeholder="First name"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="roommate123"
                 required
               />
+            </div>
+
+            {isSignup && (
+              <>
+                <div className="auth-field">
+                  <label className="auth-label" htmlFor="auth-email">Email</label>
+                  <input
+                    id="auth-email"
+                    className="input"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    required
+                  />
+                </div>
+                <div className="auth-field auth-field--split">
+                  <div>
+                    <label className="auth-label" htmlFor="auth-first">First name</label>
+                    <input
+                      id="auth-first"
+                      className="input"
+                      value={firstName}
+                      onChange={e => setFirstName(e.target.value)}
+                      placeholder="Ava"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="auth-label" htmlFor="auth-last">Last name</label>
+                    <input
+                      id="auth-last"
+                      className="input"
+                      value={lastName}
+                      onChange={e => setLastName(e.target.value)}
+                      placeholder="Lee"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="auth-password">Password</label>
               <input
+                id="auth-password"
                 className="input"
-                value={lastName}
-                onChange={e => setLastName(e.target.value)}
-                placeholder="Last name"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
               />
             </div>
-          </>
-        )}
-        <input
-          className="input"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          placeholder="Password"
-          required
-        />
-        {error && <div className="small" style={{ color: "var(--md-sys-color-danger)" }}>{error}</div>}
-        <div className="row" style={{ marginTop: 8 }}>
-          <button className="btn" type="submit" disabled={submitDisabled}>
-            <span>{isSignup ? "Sign up" : "Login"}</span>
-          </button>
+
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button className="btn auth-submit" type="submit" disabled={submitDisabled}>
+              <span>{isSignup ? "Create account" : "Continue"}</span>
+            </button>
+            <div className="auth-hint small muted">
+              {isSignup
+                ? "Your housemates will be notified when you join the space."
+                : "Forgot credentials? Ping your house admin to reset access."}
+            </div>
+          </form>
         </div>
-        <div className="small muted">
-          {isSignup
-            ? "Create your account with name and password."
-            : "Use your account username/email and password."}
-        </div>
-      </form>
-    </div>
+      </div>
+    </section>
   );
 }
