@@ -384,7 +384,7 @@ export default function Dashboard({
               onAction={() => setTab("COMMUNITY")}
               panelStyle={{ background: "linear-gradient(135deg, #ecf5ff 0%, #f6fffb 100%)", border: "1px solid rgba(15,102,191,0.16)" }}
             >
-              <div className="stack" style={{ gap: 12 }}>
+              <div className="stack community-home-list">
                 {communityLoading && <div className="small muted">Loading latest posts...</div>}
                 {communityError && (
                   <div className="small" style={{ color: "var(--md-sys-color-danger)" }}>
@@ -408,81 +408,28 @@ export default function Dashboard({
                       })) ||
                     null;
                   const displayName = authorProfile?.name || post.author?.name || "Housemate";
-                  const avatarPresetId = authorProfile?.avatarPreset || null;
-                  const fallbackPreset = avatarPresetId
-                    ? AVATAR_PRESETS.find(p => p.id === avatarPresetId)
-                    : null;
-                  const avatarSrc = authorProfile?.photo || fallbackPreset?.src || post.author?.photo || null;
-                  const avatarLetter = displayName.trim().charAt(0).toUpperCase();
-                  const avatarBg = authorProfile?.avatarColor || "var(--md-sys-color-primary-container)";
+                  const rawText = typeof post.text === "string" ? post.text.trim() : "";
+                  const previewText =
+                    rawText.length > 160 ? `${rawText.slice(0, 160).trim()}…` : rawText;
                   return (
-                    <div key={post.id} className="card" style={{ padding: 12 }}>
-                      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <div
-                            className="avatar tiny"
-                            aria-hidden="true"
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              background: avatarSrc ? "transparent" : avatarBg,
-                              color: avatarSrc ? "transparent" : "var(--md-sys-color-on-primary-container)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontWeight: 600
-                            }}
-                          >
-                            {avatarSrc ? (
-                              <img
-                                src={avatarSrc}
-                                alt=""
-                                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
-                              />
-                            ) : (
-                              avatarLetter || "?"
-                            )}
-                          </div>
-                          <span className="small" style={{ fontSize: 14, fontWeight: 600 }}>
-                            {displayName}
-                          </span>
-                          {isNew && (
-                            <span
-                              className="pill"
-                              style={{
-                                fontSize: 10,
-                                background: "var(--md-sys-color-primary)",
-                                color: "var(--md-sys-color-on-primary)"
-                              }}
-                            >
-                              New
-                            </span>
-                          )}
+                    <div key={post.id} className="community-home-card">
+                      <div className="community-home-card__header">
+                        <div className="community-home-card__title">
+                          <span>{displayName}</span>
+                          {isNew && <span className="community-chip-new">New</span>}
                         </div>
-                        <span className="small muted">
+                        <span className="community-home-card__time">
                           {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
                         </span>
                       </div>
-                      {post.text && (
-                        <div className="small" style={{ lineHeight: 1.4 }}>
-                          {post.text.length > 120 ? `${post.text.slice(0, 120)}…` : post.text}
-                        </div>
-                      )}
-                      {post.mediaUrl && (
-                        <div style={{ marginTop: 8, borderRadius: 8, overflow: "hidden", border: "1px solid var(--md-sys-color-outline-variant)" }}>
-                          <div style={{ background: `url(${post.mediaUrl}) center/cover`, width: "100%", height: 120 }} aria-hidden="true" />
-                        </div>
+                      {previewText && (
+                        <p className="community-home-card__text">
+                          {previewText}
+                        </p>
                       )}
                     </div>
                   );
                 })}
-                <button
-                  className="btn danger small"
-                  onClick={() => setTab("COMMUNITY")}
-                >
-                  Share something new
-                </button>
               </div>
             </OverviewCard>
 
