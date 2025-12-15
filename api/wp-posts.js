@@ -42,7 +42,8 @@ const fetchActorId = async (wpBase, incomingAuth) => {
   if (!incomingAuth || typeof incomingAuth !== "string") {
     return null;
   }
-  if (!incomingAuth.toLowerCase().startsWith("bearer ")) {
+  const lower = incomingAuth.toLowerCase();
+  if (!lower.startsWith("bearer ") && !lower.startsWith("flatmate ")) {
     return null;
   }
   try {

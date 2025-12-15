@@ -132,7 +132,7 @@ export default function Dashboard({
     remoteSyncKey.current = key;
     let aborted = false;
     fetch("/api/wp-houses", {
-      headers: { Authorization: `Bearer ${authToken}` }
+      headers: { Authorization: `Flatmate ${authToken}` }
     })
       .then(async resp => {
         const data = await resp.json().catch(() => []);
@@ -186,7 +186,7 @@ export default function Dashboard({
       try {
         const resp = await fetch(
           `/api/wp-posts?houseId=${encodeURIComponent(house.id)}&per_page=2&withComments=false`,
-          authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined
+          authToken ? { headers: { Authorization: `Flatmate ${authToken}` } } : undefined
         );
         const data = await resp.json();
         if (!resp.ok) {

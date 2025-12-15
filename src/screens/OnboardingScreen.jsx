@@ -6,7 +6,7 @@ export default function OnboardingScreen({ me, actions, authToken }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  const authHeaders = authToken ? { Authorization: `Flatmate ${authToken}` } : {};
 
   async function handleCreate() {
     if (!houseName.trim()) return;

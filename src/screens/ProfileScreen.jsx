@@ -30,7 +30,7 @@ export default function ProfileScreen({ me, house, houseUsers = [], actions, aut
   const [houseError, setHouseError] = useState("");
   const [houseSaving, setHouseSaving] = useState(false);
 
-  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+  const authHeaders = authToken ? { Authorization: `Flatmate ${authToken}` } : {};
 
   useEffect(() => {
     if (!me) return;

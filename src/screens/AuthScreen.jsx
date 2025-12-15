@@ -29,7 +29,7 @@ export default function AuthScreen({ actions, onAuthToken }) {
       }
       // fetch profile
       const meResp = await fetch("/api/wp-me", {
-        headers: { Authorization: `Bearer ${data.token}` }
+        headers: { Authorization: `Flatmate ${data.token}` }
       });
       const meData = await meResp.json();
       // map to existing demo user or create one if needed
@@ -71,7 +71,7 @@ export default function AuthScreen({ actions, onAuthToken }) {
       let profile = null;
       if (token) {
         const meResp = await fetch("/api/wp-me", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Flatmate ${token}` }
         });
         profile = await meResp.json().catch(() => null);
       }

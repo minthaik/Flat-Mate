@@ -147,7 +147,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     [houseId, hydrateAuthor, normalizeComment]
   );
 
-  const headers = useMemo(() => (authToken ? { Authorization: `Bearer ${authToken}` } : {}), [authToken]);
+  const headers = useMemo(() => (authToken ? { Authorization: `Flatmate ${authToken}` } : {}), [authToken]);
 
   const fetchPosts = useCallback(
     async (nextPage = 1, append = false) => {

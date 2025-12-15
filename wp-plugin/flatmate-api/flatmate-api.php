@@ -819,11 +819,35 @@ private function get_actor_override_user_id() {
 
     private function extract_bearer_token() {
         $header = $this->get_authorization_header();
-        if (!$header) return null;
-        if (stripos($header, 'Bearer ') !== 0) {
+        $token = $this->parse_authorization_token($header);
+        if ($token) {
+            return $token;
+        }
+        if (!empty($_SERVER['HTTP_X_FLATMATE_TOKEN'])) {
+            $fallback = trim((string) $_SERVER['HTTP_X_FLATMATE_TOKEN']);
+            return $fallback !== '' ? $fallback : null;
+        }
+        return null;
+    }
+
+    private function parse_authorization_token($header) {
+        if (!$header || !is_string($header)) {
             return null;
         }
-        return trim(substr($header, 7));
+        $trimmed = trim($header);
+        if ($trimmed === '') {
+            return null;
+        }
+        $prefixes = ['Flatmate ', 'Bearer '];
+        foreach ($prefixes as $prefix) {
+            if (stripos($trimmed, $prefix) === 0) {
+                $candidate = trim(substr($trimmed, strlen($prefix)));
+                if ($candidate !== '') {
+                    return $candidate;
+                }
+            }
+        }
+        return null;
     }
 
     private function cleanup_expired_tokens() {
