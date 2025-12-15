@@ -1203,6 +1203,26 @@ select {
   border-radius: var(--pill-radius);
   padding: 4px;
   gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-toggle::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 8px);
+  border-radius: var(--pill-radius);
+  background: var(--md-sys-color-primary);
+  box-shadow: var(--md-sys-elevation-1);
+  transform: translateX(0);
+  transition: transform 220ms ease;
+}
+
+.auth-toggle.is-signup::before {
+  transform: translateX(100%);
 }
 
 .auth-toggle__btn {
@@ -1213,11 +1233,12 @@ select {
   padding: 8px 0;
   border-radius: var(--pill-radius);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: color 120ms ease, font-weight 120ms ease;
+  position: relative;
+  z-index: 1;
 }
 
 .auth-toggle__btn.is-active {
-  background: var(--md-sys-color-primary);
   color: var(--md-sys-color-on-primary);
   font-weight: 600;
 }

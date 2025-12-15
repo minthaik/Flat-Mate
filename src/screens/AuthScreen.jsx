@@ -115,7 +115,11 @@ export default function AuthScreen({ actions, onAuthToken }) {
         </div>
 
         <div className="auth-card panel">
-          <div className="auth-toggle" role="tablist" aria-label="Authentication mode">
+          <div
+            className={`auth-toggle ${isSignup ? "is-signup" : "is-login"}`}
+            role="tablist"
+            aria-label="Authentication mode"
+          >
             <button
               type="button"
               className={`auth-toggle__btn ${!isSignup ? "is-active" : ""}`}
