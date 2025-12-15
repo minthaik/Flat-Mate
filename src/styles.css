@@ -1158,8 +1158,8 @@ select {
 }
 
 .auth-logo {
-  width: 140px;
-  max-width: 70%;
+  width: 170px;
+  max-width: 80%;
   height: auto;
   display: block;
   margin: 0 auto;
@@ -1169,15 +1169,16 @@ select {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 420px;
+  max-width: 170px;
+  margin: 0 auto;
 }
 
 .auth-headline {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(15, 23, 42, 0.7);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
 }
 
 .auth-card {
