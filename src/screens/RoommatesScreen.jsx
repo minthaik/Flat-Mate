@@ -27,9 +27,24 @@ export default function RoommatesScreen({ me, house, houseUsers = [], onBack }) 
     return sorted;
   }, [houseUsers, house?.adminId, house?.adminWpId]);
 
+  const formatDndCountdown = useMemo(() => {
+    return (until) => {
+      if (!until) return null;
+      const target = new Date(until).getTime();
+      if (Number.isNaN(target)) return null;
+      const diff = target - Date.now();
+      if (diff <= 0) return "wraps now";
+      const mins = Math.max(1, Math.round(diff / 60000));
+      const hours = Math.floor(mins / 60);
+      const rem = mins % 60;
+      if (hours > 0) return `${hours}h ${rem}m left`;
+      return `${rem}m left`;
+    };
+  }, []);
+
   return (
-    <>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+    <div className="roommates-screen stack">
+      <div className="roommates-header">
         <div className="section-title">Roommates</div>
         {onBack && (
           <button className="btn ghost small" onClick={onBack}>
@@ -38,82 +53,67 @@ export default function RoommatesScreen({ me, house, houseUsers = [], onBack }) 
           </button>
         )}
       </div>
-      <div className="panel">
-        <div className="small" style={{ marginTop: 6, marginBottom: 12 }}>
-          Tap to email or call your housemates. Respect DND/away before calling.
-        </div>
 
-        <div className="stack">
-          {list.map((u, idx) => {
-            const isAdmin = domainIsHouseAdmin(u, house);
-            const statusClass = u.status === "DND" ? "dnd" : u.status === "AWAY" ? "away" : u.status === "OUT" ? "out" : "home";
-            const phone = (u.phone || "").trim();
-            const phoneHref = phone ? `tel:${phone.replace(/[^+0-9]/g, "") || phone}` : null;
-            return (
-              <div
-                key={u.id}
-                className="card"
-                style={{
-                  padding: "14px 0",
-                  borderBottom: idx === list.length - 1 ? "none" : "1px solid var(--md-sys-color-outline)"
-                }}
-              >
-                <div className="row" style={{ gap: 12, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
-                  <div className="row" style={{ gap: 12, alignItems: "center", flex: "1 1 220px", minWidth: 0 }}>
-                    <div className="avatar-mark" style={{ width: 56, height: 56 }}>
-                      <img src={avatarSrc(u)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
-                    <div className="stack" style={{ gap: 6, minWidth: 0 }}>
-                      <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <div className="h3" style={{ margin: 0 }}>{u.name}</div>
-                        {isAdmin && (
-                          <span
-                            className="pill"
-                            style={{
-                              background: "rgba(220, 38, 38, 0.12)",
-                              color: "#b91c1c",
-                              border: "1px solid rgba(185, 28, 28, 0.3)",
-                              fontSize: 11,
-                              padding: "4px 10px"
-                            }}
-                          >
-                            Admin
-                          </span>
-                        )}
-                      </div>
-                      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                        <span className={`pill ${statusClass}`} style={{ fontSize: 11, padding: "4px 10px" }}>
-                          {u.status || "HOME"}
-                        </span>
-                        {u.email && <span className="small muted">{u.email}</span>}
-                      </div>
-                      <div className="small muted" style={{ lineHeight: 1.4, wordBreak: "break-word" }}>
-                        {u.statusNote || u.tagline || "No note set"}
-                      </div>
-                    </div>
+      <div className="stack" style={{ gap: 16 }}>
+        {list.length === 0 && (
+          <div className="panel roommates-empty">
+            <span className="material-symbols-outlined" aria-hidden="true">group</span>
+            <div>
+              <div className="h3" style={{ margin: 0 }}>No roommates yet</div>
+              <p className="small muted" style={{ margin: "4px 0 0" }}>Invite your crew to Paxbud to collaborate.</p>
+            </div>
+          </div>
+        )}
+
+        {list.map(u => {
+          const isAdmin = domainIsHouseAdmin(u, house);
+          const status = (u.status || "HOME").toUpperCase();
+          const statusClass =
+            status === "DND" ? "dnd" :
+            status === "AWAY" ? "away" :
+            status === "OUT" ? "out" : "home";
+          const phone = (u.phone || "").trim();
+          const phoneHref = phone ? `tel:${phone.replace(/[^+0-9]/g, "") || phone}` : null;
+          const dndCountdown = status === "DND" ? formatDndCountdown(u.dndUntil) : null;
+          return (
+            <article key={u.id} className="panel roommate-panel">
+              <div className="roommate-panel__body">
+                <div className="roommate-avatar">
+                  <img src={avatarSrc(u)} alt="" />
+                </div>
+                <div className="roommate-info">
+                  <div className="roommate-name-row">
+                    <span className="roommate-name">{u.name || "Housemate"}</span>
+                    {isAdmin && <span className="chip chip-admin">Admin</span>}
                   </div>
-                  <div className="row" style={{ gap: 8, minWidth: "200px", justifyContent: "flex-end", flex: "0 0 auto" }}>
-                    <a className="btn secondary small" href={`mailto:${u.email || ""}`} aria-label={`Email ${u.name}`}>
-                      <span className="material-symbols-outlined" aria-hidden="true">mail</span>
-                      <span>Email</span>
-                    </a>
-                    <a
-                      className="btn ghost small"
-                      href={phoneHref || undefined}
-                      aria-label={phone ? `Call ${u.name}` : "Phone unavailable"}
-                      style={!phone ? { opacity: 0.5, cursor: "not-allowed" } : {}}
-                      onClick={e => { if (!phone) e.preventDefault(); }}
-                    >
-                      <span className="material-symbols-outlined" aria-hidden="true">call</span>
-                      <span>Call</span>
-                    </a>
+                  <div className="roommate-status-row">
+                    <span className={`pill ${statusClass}`}>{status}</span>
+                    {dndCountdown && <span className="roommate-dnd">{dndCountdown}</span>}
                   </div>
+                  <p className="roommate-note small muted">
+                    {u.statusNote || u.tagline || "No note shared yet."}
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <div className="roommate-panel__actions">
+                <a className="chip-button" href={`mailto:${u.email || ""}`} aria-label={`Email ${u.name || "housemate"}`}>
+                  <span className="material-symbols-outlined" aria-hidden="true">mail</span>
+                  <span>Email</span>
+                </a>
+                <a
+                  className={`chip-button ${!phone ? "is-disabled" : ""}`}
+                  href={phoneHref || undefined}
+                  aria-label={phone ? `Call ${u.name || "housemate"}` : "Phone unavailable"}
+                  onClick={e => { if (!phone) e.preventDefault(); }}
+                >
+                  <span className="material-symbols-outlined" aria-hidden="true">call</span>
+                  <span>Call</span>
+                </a>
+              </div>
+            </article>
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 }
