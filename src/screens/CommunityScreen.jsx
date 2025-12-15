@@ -465,39 +465,33 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
 
   return (
     <div className="community-screen stack" style={{ gap: 20, paddingTop: 16 }}>
-      <div className="community-screen__header">
-        <div>
-          <p className="eyebrow">Flatmate Collective · 2026</p>
-          <h2 className="community-title">Community feed</h2>
-        </div>
-        <div className="community-header__actions">
-          {houseId ? (
-            <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
-              <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
-              <span>{loading ? "Syncing..." : "Refresh"}</span>
-            </button>
-          ) : (
-            <div className="small muted">
-              Create or join a house to unlock this feed.
-            </div>
-          )}
-          {onBack && (
-            <button className="btn ghost small" onClick={onBack}>
-              <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-              <span>Back</span>
-            </button>
-          )}
+      <div className="community-screen__heading">
+        <div className="section-title">Community feed</div>
+        <div className="community-heading__bar">
+          <div className="community-heading__left">
+            {houseId ? (
+              <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
+                <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+                <span>{loading ? "Syncing..." : "Refresh"}</span>
+              </button>
+            ) : (
+              <div className="small muted">
+                Create or join a house to unlock this feed.
+              </div>
+            )}
+          </div>
+          <div className="community-heading__right">
+            {onBack && (
+              <button className="btn ghost small" onClick={onBack}>
+                <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+                <span>Back</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       <section className="panel community-hero">
-        <div className="community-hero__summary">
-          <p className="community-subtitle">
-            {houseId
-              ? "Micro-updates keep everyone aligned. Post when something needs eyes or applause."
-              : "Invite your house to Flatmate to start sharing updates in one place."}
-          </p>
-        </div>
         <div className="community-hero__stats">
           {heroStats.map(stat => (
             <div key={stat.id} className="community-hero__stat">
