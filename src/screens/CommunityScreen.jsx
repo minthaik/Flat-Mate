@@ -608,8 +608,8 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
                     alt=""
                   />
                 </div>
-                <div>
-                  <div className="community-author-line">
+                <div className="community-author-line">
+                  <div className="community-author-line__primary">
                     <span className="community-author-name">{post.author?.name || "Housemate"}</span>
                     {post.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
                   </div>
@@ -672,12 +672,14 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
                     </div>
                     <div className="community-comment__meta">
                       <div className="community-author-line">
-                        <span className="community-author-name">{comment.author?.name || "Housemate"}</span>
-                        {comment.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
+                        <div className="community-author-line__primary">
+                          <span className="community-author-name">{comment.author?.name || "Housemate"}</span>
+                          {comment.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
+                        </div>
+                        <span className="community-post__timestamp">
+                          {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
+                        </span>
                       </div>
-                      <span className="community-post__timestamp">
-                        {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
-                      </span>
                     </div>
                     {canManageComment(comment) && (
                       <button

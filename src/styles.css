@@ -1095,6 +1095,12 @@ select {
 }
 
 .community-author-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.community-author-line__primary {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
