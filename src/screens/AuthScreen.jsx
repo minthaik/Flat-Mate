@@ -105,9 +105,7 @@ export default function AuthScreen({ actions, onAuthToken }) {
     <section className="auth-screen">
       <div className="auth-shell">
         <div className="auth-hero">
-          <div className="auth-logo">
-            <img src="/paxbud-logo.svg" alt="Paxbud logo" />
-          </div>
+          <img className="auth-logo" src="/paxbud-logo.svg" alt="Paxbud logo" />
           <div className="auth-hero__text">
             <h1 className="auth-headline">LIVE BETTER TOGETHER</h1>
             <p className="small muted">

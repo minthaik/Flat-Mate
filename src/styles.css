@@ -1149,18 +1149,11 @@ select {
 }
 
 .auth-logo {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--md-sys-color-primary) 0%, var(--md-sys-color-secondary) 100%);
-  box-shadow: var(--md-sys-elevation-2);
-}
-
-.auth-logo img {
-  width: 60%;
+  width: 140px;
+  max-width: 70%;
   height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .auth-hero__text {
