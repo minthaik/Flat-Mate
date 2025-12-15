@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isHouseAdmin as domainIsHouseAdmin } from "../domain/houses";
 
 const PAGE_SIZE = 10;
@@ -26,8 +26,18 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const [commentLoading, setCommentLoading] = useState({});
   const [threadLoading, setThreadLoading] = useState({});
   const [deletingPostId, setDeletingPostId] = useState(null);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const composerTextareaRef = useRef(null);
   const houseId = house?.id;
   const isHouseAdmin = domainIsHouseAdmin(me, house);
+  const composerAvatar =
+    me?.photo ||
+    me?.avatar ||
+    me?.avatarUrl ||
+    me?.avatar_url ||
+    me?.profilePhoto ||
+    me?.profile_photo ||
+    DEFAULT_AVATAR;
 
   const houseUsersByWp = useMemo(() => {
     const map = new Map();
@@ -393,45 +403,153 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     fetchPosts(page + 1, true);
   }, [fetchPosts, hasMore, loading, page]);
 
+  const formatRelativeTime = useCallback((value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    const diff = Date.now() - date.getTime();
+    const segments = [
+      { limit: 60 * 1000, divisor: 1000, unit: "s" },
+      { limit: 60 * 60 * 1000, divisor: 60 * 1000, unit: "m" },
+      { limit: 24 * 60 * 60 * 1000, divisor: 60 * 60 * 1000, unit: "h" },
+      { limit: 7 * 24 * 60 * 60 * 1000, divisor: 24 * 60 * 60 * 1000, unit: "d" }
+    ];
+    for (const segment of segments) {
+      if (diff < segment.limit) {
+        const value = Math.max(1, Math.round(diff / segment.divisor));
+        return `${value}${segment.unit} ago`;
+      }
+    }
+    return date.toLocaleDateString();
+  }, []);
+
+  const heroStats = useMemo(() => {
+    const latestPost = posts[0];
+    const totalComments = posts.reduce((acc, post) => acc + (Number(post.commentCount) || 0), 0);
+    const formatValue = (val) =>
+      typeof val === "number" && Number.isFinite(val) && val > 0 ? val.toString().padStart(2, "0") : "—";
+    return [
+      {
+        id: "members",
+        label: "Housemates",
+        value: formatValue(houseUsers.length),
+        caption: houseUsers.length ? "synced in this space" : "invite your circle"
+      },
+      {
+        id: "posts",
+        label: "Live posts",
+        value: formatValue(posts.length),
+        caption: posts.length ? "this week" : "waiting for first drop"
+      },
+      {
+        id: "conversation",
+        label: "Conversation",
+        value: formatValue(totalComments),
+        caption: latestPost?.createdAt ? `Latest ${formatRelativeTime(latestPost.createdAt)}` : "ready when you are"
+      }
+    ];
+  }, [formatRelativeTime, houseUsers.length, posts]);
+
+  const handleRefresh = useCallback(() => {
+    if (!houseId) return;
+    fetchPosts(1, false);
+  }, [fetchPosts, houseId]);
+
+  const focusComposer = useCallback(() => {
+    composerTextareaRef.current?.focus();
+  }, []);
+
   const composerDisabled = !houseId || creatingPost;
+  const composerReady = !composerDisabled && (composerText.trim() || composerImage);
+  const showEmptyState = !loading && posts.length === 0;
 
   return (
-    <div className="stack" style={{ gap: 16, paddingTop: 24 }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div className="section-title" style={{ margin: 0 }}>Community feed</div>
-        {onBack && (
-          <button className="btn ghost small" onClick={onBack}>
-            <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
-            <span>Back</span>
-          </button>
-        )}
-      </div>
-
-      <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {!houseId && (
-          <div className="small muted">
-            Create or join a house to share updates with your community.
+    <div className="community-screen stack" style={{ gap: 24, paddingTop: 24 }}>
+      <section className="panel community-hero">
+        <div className="community-hero__header">
+          <div className="community-hero__text">
+            <p className="eyebrow">Flatmate Collective · 2026</p>
+            <h1 className="community-title">Community feed</h1>
+            <p className="community-subtitle">
+              Celebrate micro-wins, ask for help, and keep your house aligned in real-time.
+            </p>
           </div>
-        )}
-        <textarea
-          className="input"
-          placeholder="Share what's happening..."
-          rows={3}
-          value={composerText}
-          onChange={e => setComposerText(e.target.value)}
-          disabled={composerDisabled}
-          style={{ resize: "vertical" }}
-        />
-        {imagePreview && (
-          <div className="card" style={{ padding: 8, position: "relative" }}>
-            <img
-              src={imagePreview}
-              alt="Preview"
-              style={{ width: "100%", borderRadius: 8, maxHeight: 320, objectFit: "cover" }}
+          <div className="community-hero__actions">
+            {houseId ? (
+              <button className="btn secondary small" onClick={handleRefresh} disabled={loading}>
+                <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+                <span>{loading ? "Syncing..." : "Refresh feed"}</span>
+              </button>
+            ) : (
+              <div className="small muted">
+                Create or join a house to unlock the community feed.
+              </div>
+            )}
+            {onBack && (
+              <button className="btn ghost small" onClick={onBack}>
+                <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+                <span>Back</span>
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="community-hero__stats">
+          {heroStats.map(stat => (
+            <div key={stat.id} className="community-hero__stat">
+              <span className="eyebrow">{stat.label}</span>
+              <div className="community-hero__value">{stat.value}</div>
+              {stat.caption && <span className="small muted">{stat.caption}</span>}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel community-composer">
+        <div className="community-composer__row">
+          <div className="community-avatar community-avatar--lg">
+            <img src={composerAvatar || DEFAULT_AVATAR} alt="" />
+          </div>
+          <div
+            className={[
+              "community-composer__field",
+              composerFocused ? "is-focused" : "",
+              composerDisabled ? "is-disabled" : ""
+            ].filter(Boolean).join(" ")}
+          >
+            <textarea
+              ref={composerTextareaRef}
+              className="community-composer__input"
+              placeholder={
+                houseId
+                  ? "Drop an update, shout-out a housemate, or ask for what you need..."
+                  : "Join or create a house to start sharing updates."
+              }
+              rows={3}
+              value={composerText}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              onChange={e => setComposerText(e.target.value)}
+              disabled={composerDisabled}
             />
+            <div className="community-composer__helper">
+              <span className="small muted">
+                Posts land in everyone's notifications. Keep it human and helpful.
+              </span>
+              {houseId && (
+                <button type="button" className="chip-button ghost" onClick={focusComposer}>
+                  <span className="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
+                  <span>Inspire</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {imagePreview && (
+          <div className="community-media-preview">
+            <img src={imagePreview} alt="Preview" />
             <button
               className="btn icon-only danger"
-              style={{ position: "absolute", top: 8, right: 8 }}
               onClick={clearComposerMedia}
               aria-label="Remove photo"
             >
@@ -439,202 +557,196 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
             </button>
           </div>
         )}
-        <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
-          <label className="btn ghost small" style={{ cursor: composerDisabled ? "not-allowed" : "pointer" }}>
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              disabled={composerDisabled}
-              onChange={handleImageChange}
-            />
-            <span className="material-symbols-outlined" aria-hidden="true">photo_camera</span>
-            <span>Add photo</span>
-          </label>
+
+        <div className="community-composer__actions">
+          <div className="community-composer__action-left">
+            <label className={`chip-button ${composerDisabled ? "is-disabled" : ""}`}>
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                disabled={composerDisabled}
+                onChange={handleImageChange}
+              />
+              <span className="material-symbols-outlined" aria-hidden="true">add_a_photo</span>
+              <span>Photo</span>
+            </label>
+            {imagePreview && (
+              <button type="button" className="chip-button ghost" onClick={clearComposerMedia}>
+                <span className="material-symbols-outlined" aria-hidden="true">backspace</span>
+                <span>Reset media</span>
+              </button>
+            )}
+          </div>
           <button
-            className="btn secondary"
+            className="btn"
             onClick={handleCreatePost}
-            disabled={composerDisabled || (!composerText.trim() && !composerImage)}
+            disabled={!composerReady}
           >
-            {creatingPost ? "Posting..." : "Post"}
+            {creatingPost ? "Posting..." : "Post update"}
           </button>
         </div>
+
         {error && (
-          <div className="small" style={{ color: "var(--md-sys-color-danger)" }}>
-            {error}
+          <div className="community-inline-error">
+            <span className="material-symbols-outlined" aria-hidden="true">error</span>
+            <span>{error}</span>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="stack" style={{ gap: 12 }}>
-        {posts.length === 0 && (
-          <div className="panel">
-            {loading ? (
-              <div className="small muted">Loading posts...</div>
-            ) : (
-              <div className="small muted">No updates yet. Be the first to post!</div>
+      <section className="community-feed stack" style={{ gap: 16 }}>
+        {loading && posts.length === 0 && (
+          <div className="panel community-empty">
+            <div className="small muted">Loading posts...</div>
+          </div>
+        )}
+
+        {showEmptyState && (
+          <div className="panel community-empty">
+            <span className="material-symbols-outlined" aria-hidden="true">hotel_class</span>
+            <div className="community-empty__copy">
+              <div className="h3" style={{ margin: 0 }}>No updates yet</div>
+              <p className="small muted" style={{ margin: 0 }}>
+                Share a quick win, drop an errand reminder, or ask for backup. The thread lives here.
+              </p>
+            </div>
+            {houseId && (
+              <button className="btn secondary small" type="button" onClick={focusComposer}>
+                Start a post
+              </button>
             )}
           </div>
         )}
 
         {posts.map(post => (
-          <article key={post.id} className="panel" style={{ padding: 16, gap: 12 }}>
-            <div className="stack" style={{ gap: 12 }}>
-              <header className="row" style={{ gap: 12, alignItems: "center", justifyContent: "space-between" }}>
-                <div className="row" style={{ gap: 12, alignItems: "center", flex: "1 1 auto" }}>
-                  <div className="avatar-mark" style={{ width: 48, height: 48 }}>
-                    <img
-                      src={post.author?.avatar || DEFAULT_AVATAR}
-                      alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  </div>
-                  <div className="stack" style={{ gap: 4 }}>
-                    <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <span className="h3" style={{ margin: 0 }}>{post.author?.name || "Housemate"}</span>
-                      {post.author?.isAdmin && (
-                        <span
-                          className="pill"
-                          style={{
-                            background: "rgba(220, 38, 38, 0.12)",
-                            color: "#b91c1c",
-                            border: "1px solid rgba(185, 28, 28, 0.3)",
-                            fontSize: 11,
-                            padding: "4px 10px"
-                          }}
-                        >
-                          Admin
-                        </span>
-                      )}
-                    </div>
-                    <span className="small muted">
-                      {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
-                    </span>
-                  </div>
-                </div>
-                {canManagePost(post) && (
-                  <button
-                    className="btn ghost small"
-                    onClick={() => handleDeletePost(post.id)}
-                    disabled={deletingPostId === post.id}
-                  >
-                    {deletingPostId === post.id ? "Removing..." : "Delete"}
-                  </button>
-                )}
-              </header>
-
-              {post.text && <p style={{ margin: "4px 0 0 0", lineHeight: 1.5 }}>{post.text}</p>}
-              {post.mediaUrl && (
-                <div style={{ borderRadius: 12, overflow: "hidden", marginTop: 8 }}>
+          <article key={post.id} className="panel community-post">
+            <header className="community-post__header">
+              <div className="community-post__author">
+                <div className="community-avatar">
                   <img
-                    src={post.mediaUrl}
+                    src={post.author?.avatar || DEFAULT_AVATAR}
                     alt=""
-                    style={{ width: "100%", maxHeight: 420, objectFit: "cover" }}
                   />
                 </div>
-              )}
-
-              <div
-                className="row"
-                style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", margin: "8px 0" }}
-              >
-                <span className="small muted">
-                  {post.commentCount === 0
-                    ? "No comments yet"
-                    : `${post.commentCount} comment${post.commentCount === 1 ? "" : "s"}`}
-                </span>
-                {post.commentCount > post.comments.length && (
-                  <button
-                    className="btn ghost small"
-                    onClick={() => loadFullThread(post.id)}
-                    disabled={threadLoading[post.id]}
-                  >
-                    {threadLoading[post.id] ? "Loading..." : "View all comments"}
-                  </button>
-                )}
-              </div>
-
-              <div className="stack" style={{ gap: 12 }}>
-                {post.comments.map(comment => (
-                  <div key={comment.id} className="card" style={{ padding: 12, background: "var(--md-sys-color-surface2)" }}>
-                    <div className="row" style={{ gap: 8, alignItems: "center", justifyContent: "space-between" }}>
-                      <div className="row" style={{ gap: 10, alignItems: "center", flex: "1 1 auto" }}>
-                        <div className="avatar-mark" style={{ width: 36, height: 36 }}>
-                          <img
-                            src={comment.author?.avatar || DEFAULT_AVATAR}
-                            alt=""
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          />
-                        </div>
-                        <div className="stack" style={{ gap: 2 }}>
-                          <div className="row" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            <span className="small emphasis">{comment.author?.name || "Housemate"}</span>
-                            {comment.author?.isAdmin && (
-                              <span
-                                className="pill"
-                                style={{
-                                  background: "rgba(220, 38, 38, 0.12)",
-                                  color: "#b91c1c",
-                                  border: "1px solid rgba(185, 28, 28, 0.3)",
-                                  fontSize: 10,
-                                  padding: "2px 8px"
-                                }}
-                              >
-                                Admin
-                              </span>
-                            )}
-                          </div>
-                          <span className="small muted">
-                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
-                          </span>
-                        </div>
-                      </div>
-                      {canManageComment(comment) && (
-                        <button
-                          className="btn ghost small"
-                          onClick={() => handleDeleteComment(post.id, comment.id)}
-                          disabled={Boolean(threadLoading[`delete-${comment.id}`])}
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                    <div className="small" style={{ marginTop: 8, lineHeight: 1.4 }}>
-                      {comment.text}
-                    </div>
+                <div>
+                  <div className="community-author-line">
+                    <span className="community-author-name">{post.author?.name || "Housemate"}</span>
+                    {post.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
                   </div>
-                ))}
-
-                <div className="row" style={{ gap: 8, alignItems: "flex-start" }}>
-                  <textarea
-                    className="input"
-                    rows={2}
-                    placeholder="Write a comment..."
-                    value={commentDrafts[post.id] || ""}
-                    onChange={e => handleCommentChange(post.id, e.target.value)}
-                    style={{ flex: "1 1 auto", resize: "vertical" }}
-                  />
-                  <button
-                    className="btn secondary small"
-                    onClick={() => handleAddComment(post.id)}
-                    disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
-                  >
-                    {commentLoading[post.id] ? "Posting..." : "Comment"}
-                  </button>
+                  <span className="community-post__timestamp">
+                    {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
+                  </span>
                 </div>
+              </div>
+              {canManagePost(post) && (
+                <button
+                  className="btn ghost small"
+                  onClick={() => handleDeletePost(post.id)}
+                  disabled={deletingPostId === post.id}
+                >
+                  <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                  <span>{deletingPostId === post.id ? "Removing..." : "Delete"}</span>
+                </button>
+              )}
+            </header>
+
+            {post.text && (
+              <p className="community-post__text">
+                {post.text}
+              </p>
+            )}
+
+            {post.mediaUrl && (
+              <div className="community-post__media">
+                <img src={post.mediaUrl} alt="" />
+              </div>
+            )}
+
+            <div className="community-post__meta">
+              <span className="small muted">
+                {post.commentCount === 0
+                  ? "No comments yet"
+                  : `${post.commentCount} comment${post.commentCount === 1 ? "" : "s"}`}
+              </span>
+              {post.commentCount > post.comments.length && (
+                <button
+                  className="btn ghost small"
+                  onClick={() => loadFullThread(post.id)}
+                  disabled={threadLoading[post.id]}
+                >
+                  <span className="material-symbols-outlined" aria-hidden="true">forum</span>
+                  <span>{threadLoading[post.id] ? "Loading..." : "View all"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="community-comments">
+              {post.comments.map(comment => (
+                <div key={comment.id} className="community-comment">
+                  <div className="community-comment__top">
+                    <div className="community-avatar community-avatar--sm">
+                      <img
+                        src={comment.author?.avatar || DEFAULT_AVATAR}
+                        alt=""
+                      />
+                    </div>
+                    <div className="community-comment__meta">
+                      <div className="community-author-line">
+                        <span className="community-author-name">{comment.author?.name || "Housemate"}</span>
+                        {comment.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
+                      </div>
+                      <span className="community-post__timestamp">
+                        {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
+                      </span>
+                    </div>
+                    {canManageComment(comment) && (
+                      <button
+                        className="btn ghost small"
+                        onClick={() => handleDeleteComment(post.id, comment.id)}
+                        disabled={Boolean(threadLoading[`delete-${comment.id}`])}
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="community-comment__body">
+                    {comment.text}
+                  </div>
+                </div>
+              ))}
+
+              <div className="community-comment-composer">
+                <textarea
+                  className="community-comment-input"
+                  rows={2}
+                  placeholder="Write a comment..."
+                  value={commentDrafts[post.id] || ""}
+                  onChange={e => handleCommentChange(post.id, e.target.value)}
+                />
+                <button
+                  className="btn secondary small"
+                  onClick={() => handleAddComment(post.id)}
+                  disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
+                >
+                  <span className="material-symbols-outlined" aria-hidden="true">send</span>
+                  <span>{commentLoading[post.id] ? "Posting..." : "Comment"}</span>
+                </button>
               </div>
             </div>
           </article>
         ))}
 
         {hasMore && posts.length > 0 && (
-          <div className="panel" style={{ padding: 16 }}>
+          <div className="panel community-load-more">
             <button className="btn ghost" onClick={handleLoadMore} disabled={loading}>
-              {loading ? "Loading..." : "Load more posts"}
+              <span className="material-symbols-outlined" aria-hidden="true">unfold_more</span>
+              <span>{loading ? "Loading..." : "Load more posts"}</span>
             </button>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
