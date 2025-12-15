@@ -466,14 +466,20 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
         )}
       </div>
 
-      <div className="panel">
-        {loading && posts.length === 0 && <div className="small muted">Loading posts...</div>}
-        {!loading && posts.length === 0 && (
-          <div className="small muted">No updates yet. Be the first to post!</div>
+      <div className="stack" style={{ gap: 16 }}>
+        {posts.length === 0 && (
+          <div className="panel">
+            {loading ? (
+              <div className="small muted">Loading posts...</div>
+            ) : (
+              <div className="small muted">No updates yet. Be the first to post!</div>
+            )}
+          </div>
         )}
-        <div className="stack" style={{ gap: 16 }}>
-          {posts.map(post => (
-            <article key={post.id} className="card" style={{ padding: 16, gap: 12 }}>
+
+        {posts.map(post => (
+          <article key={post.id} className="panel" style={{ padding: 16, gap: 12 }}>
+            <div className="stack" style={{ gap: 12 }}>
               <header className="row" style={{ gap: 12, alignItems: "center", justifyContent: "space-between" }}>
                 <div className="row" style={{ gap: 12, alignItems: "center", flex: "1 1 auto" }}>
                   <div className="avatar-mark" style={{ width: 48, height: 48 }}>
@@ -617,12 +623,12 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
                   </button>
                 </div>
               </div>
-            </article>
-          ))}
-        </div>
+            </div>
+          </article>
+        ))}
 
         {hasMore && posts.length > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div className="panel" style={{ padding: 16 }}>
             <button className="btn ghost" onClick={handleLoadMore} disabled={loading}>
               {loading ? "Loading..." : "Load more posts"}
             </button>
