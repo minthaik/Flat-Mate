@@ -1331,6 +1331,11 @@ select {
   font-weight: 600;
 }
 
+.community-comment .community-author-name {
+  font-weight: 500;
+  font-size: 13px;
+}
+
 .community-post__timestamp {
   font-size: 13px;
   color: var(--md-text-secondary);
