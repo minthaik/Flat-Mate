@@ -290,10 +290,15 @@ private function get_actor_override_user_id() {
     }
 
     private function user_is_last_admin($house_id, $user_id) {
-        if (!$this->user_is_house_admin($house_id, $user_id)) {
+        global $wpdb;
+        $member = $wpdb->get_row($wpdb->prepare(
+            "SELECT role FROM {$this->tables['members']} WHERE house_id=%d AND user_id=%d",
+            $house_id,
+            $user_id
+        ));
+        if (!$member || strtolower($member->role ?? '') !== 'admin') {
             return false;
         }
-        global $wpdb;
         $admin_count = (int) $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$this->tables['members']} WHERE house_id=%d AND LOWER(role)='admin'",
             $house_id
