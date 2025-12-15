@@ -898,11 +898,6 @@ select {
   border: 1px solid var(--md-sys-color-outline);
 }
 
-.community-composer__row {
-  display: flex;
-  gap: var(--space-3);
-}
-
 .community-avatar {
   width: 48px;
   height: 48px;
@@ -928,6 +923,12 @@ select {
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
+.community-composer__input--condensed {
+  font-size: 15px;
+  line-height: 1.4;
+  min-height: 88px;
+}
+
 .community-composer__field.is-focused {
   border-color: var(--md-field-border-strong);
   box-shadow: 0 0 0 2px rgba(63, 86, 201, 0.15);
@@ -944,19 +945,28 @@ select {
   color: inherit;
   font: inherit;
   resize: none;
-  min-height: 96px;
+  min-height: 80px;
+}
+
+.community-composer__input::placeholder,
+.community-comment-input::placeholder {
+  font-size: 14px;
+  color: var(--md-text-secondary);
 }
 
 .community-composer__input:focus {
   outline: none;
 }
 
-.community-composer__helper {
+.community-composer__actionbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
+  border-top: 1px solid var(--md-sys-color-outline);
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .chip-button {
@@ -988,6 +998,7 @@ select {
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--md-sys-color-outline);
+  margin-top: var(--space-2);
 }
 
 .community-media-preview img {
@@ -1003,19 +1014,15 @@ select {
   right: 12px;
 }
 
-.community-composer__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
 .community-composer__action-left {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.community-composer__post {
+  min-width: 110px;
 }
 
 .community-inline-error {
@@ -1146,9 +1153,11 @@ select {
 }
 
 .community-comment-composer {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  width: 100%;
+}
+
+.community-comment-input-wrap {
+  position: relative;
 }
 
 .community-comment-input {
@@ -1160,13 +1169,20 @@ select {
   background: var(--md-field-bg);
   color: inherit;
   resize: vertical;
-  min-height: 72px;
+  min-height: 70px;
+  padding-right: 110px;
 }
 
 .community-comment-input:focus {
   outline: none;
   border-color: var(--md-field-border-strong);
   box-shadow: 0 0 0 1px rgba(63, 86, 201, 0.25);
+}
+
+.community-comment-submit {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
 }
 
 .community-empty {
@@ -1189,9 +1205,6 @@ select {
 }
 
 @media (max-width: 640px) {
-  .community-composer__row {
-    flex-direction: column;
-  }
   .community-avatar--lg {
     width: 48px;
     height: 48px;

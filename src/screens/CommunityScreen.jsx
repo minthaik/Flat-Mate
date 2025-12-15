@@ -30,14 +30,6 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const composerTextareaRef = useRef(null);
   const houseId = house?.id;
   const isHouseAdmin = domainIsHouseAdmin(me, house);
-  const composerAvatar =
-    me?.photo ||
-    me?.avatar ||
-    me?.avatarUrl ||
-    me?.avatar_url ||
-    me?.profilePhoto ||
-    me?.profile_photo ||
-    DEFAULT_AVATAR;
 
   const houseUsersByWp = useMemo(() => {
     const map = new Map();
@@ -504,86 +496,70 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
       </section>
 
       <section className="panel community-composer">
-        <div className="community-composer__row">
-          <div className="community-avatar community-avatar--lg">
-            <img src={composerAvatar || DEFAULT_AVATAR} alt="" />
-          </div>
-          <div
-            className={[
-              "community-composer__field",
-              composerFocused ? "is-focused" : "",
-              composerDisabled ? "is-disabled" : ""
-            ].filter(Boolean).join(" ")}
-          >
-            <textarea
-              ref={composerTextareaRef}
-              className="community-composer__input"
-              placeholder={
-                houseId
-                  ? "Drop an update, shout-out a housemate, or ask for what you need..."
-                  : "Join or create a house to start sharing updates."
-              }
-              rows={3}
-              value={composerText}
-              onFocus={() => setComposerFocused(true)}
-              onBlur={() => setComposerFocused(false)}
-              onChange={e => setComposerText(e.target.value)}
-              disabled={composerDisabled}
-            />
-            <div className="community-composer__helper">
-              <span className="small muted">
-                Posts land in everyone's notifications. Keep it human and helpful.
-              </span>
-              {houseId && (
-                <button type="button" className="chip-button ghost" onClick={focusComposer}>
-                  <span className="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
-                  <span>Inspire</span>
+        <div
+          className={[
+            "community-composer__field",
+            composerFocused ? "is-focused" : "",
+            composerDisabled ? "is-disabled" : ""
+          ].filter(Boolean).join(" ")}
+        >
+          <textarea
+            ref={composerTextareaRef}
+            className="community-composer__input community-composer__input--condensed"
+            placeholder={
+              houseId
+                ? "Share an update, ask for backup, or celebrate a win."
+                : "Join or create a house to start sharing updates."
+            }
+            rows={3}
+            value={composerText}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
+            onChange={e => setComposerText(e.target.value)}
+            disabled={composerDisabled}
+          />
+
+          {imagePreview && (
+            <div className="community-media-preview">
+              <img src={imagePreview} alt="Preview" />
+              <button
+                className="btn icon-only danger"
+                onClick={clearComposerMedia}
+                aria-label="Remove photo"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+          )}
+
+          <div className="community-composer__actionbar">
+            <div className="community-composer__action-left">
+              <label className={`chip-button ${composerDisabled ? "is-disabled" : ""}`}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={composerDisabled}
+                  onChange={handleImageChange}
+                />
+                <span className="material-symbols-outlined" aria-hidden="true">add_a_photo</span>
+                <span>Photo</span>
+              </label>
+              {imagePreview && (
+                <button type="button" className="chip-button ghost" onClick={clearComposerMedia}>
+                  <span className="material-symbols-outlined" aria-hidden="true">backspace</span>
+                  <span>Reset media</span>
                 </button>
               )}
             </div>
-          </div>
-        </div>
-
-        {imagePreview && (
-          <div className="community-media-preview">
-            <img src={imagePreview} alt="Preview" />
             <button
-              className="btn icon-only danger"
-              onClick={clearComposerMedia}
-              aria-label="Remove photo"
+              className="btn community-composer__post"
+              onClick={handleCreatePost}
+              disabled={!composerReady}
             >
-              <span className="material-symbols-outlined">close</span>
+              {creatingPost ? "Posting..." : "Post"}
             </button>
           </div>
-        )}
-
-        <div className="community-composer__actions">
-          <div className="community-composer__action-left">
-            <label className={`chip-button ${composerDisabled ? "is-disabled" : ""}`}>
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                disabled={composerDisabled}
-                onChange={handleImageChange}
-              />
-              <span className="material-symbols-outlined" aria-hidden="true">add_a_photo</span>
-              <span>Photo</span>
-            </label>
-            {imagePreview && (
-              <button type="button" className="chip-button ghost" onClick={clearComposerMedia}>
-                <span className="material-symbols-outlined" aria-hidden="true">backspace</span>
-                <span>Reset media</span>
-              </button>
-            )}
-          </div>
-          <button
-            className="btn"
-            onClick={handleCreatePost}
-            disabled={!composerReady}
-          >
-            {creatingPost ? "Posting..." : "Post update"}
-          </button>
         </div>
 
         {error && (
@@ -717,21 +693,23 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
               ))}
 
               <div className="community-comment-composer">
-                <textarea
-                  className="community-comment-input"
-                  rows={2}
-                  placeholder="Write a comment..."
-                  value={commentDrafts[post.id] || ""}
-                  onChange={e => handleCommentChange(post.id, e.target.value)}
-                />
-                <button
-                  className="btn secondary small"
-                  onClick={() => handleAddComment(post.id)}
-                  disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
-                >
-                  <span className="material-symbols-outlined" aria-hidden="true">send</span>
-                  <span>{commentLoading[post.id] ? "Posting..." : "Comment"}</span>
-                </button>
+                <div className="community-comment-input-wrap">
+                  <textarea
+                    className="community-comment-input"
+                    rows={2}
+                    placeholder="Add a comment..."
+                    value={commentDrafts[post.id] || ""}
+                    onChange={e => handleCommentChange(post.id, e.target.value)}
+                  />
+                  <button
+                    className="btn secondary small community-comment-submit"
+                    onClick={() => handleAddComment(post.id)}
+                    disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">send</span>
+                    <span>{commentLoading[post.id] ? "Posting..." : "Comment"}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </article>
