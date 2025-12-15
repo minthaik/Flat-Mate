@@ -12,6 +12,11 @@ const buildAuthHeader = (req) => {
   };
 };
 
+const withFallback = async (url, opts, basicAuth, incomingAuth) => {
+  const resp = await fetch(url, opts);
+  return resp;
+};
+
 const parseResponse = async (resp) => {
   const contentType = resp.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -37,7 +42,19 @@ const fetchActorId = async (wpBase, incomingAuth) => {
     const resp = await fetch(`${wpBase}/wp-json/wp/v2/users/me`, {
       headers: { Authorization: incomingAuth }
     });
-    return resp;
+    if (!resp.ok) {
+      return null;
+    }
+    const data = await resp.json().catch(() => null);
+    const id = data?.id;
+    if (typeof id === "number" && Number.isFinite(id)) {
+      return id;
+    }
+    const parsed = parseInt(id, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 };
 
 export default async function handler(req, res) {
