@@ -33,9 +33,20 @@ export default function App() {
     if (typeof window === "undefined") return null;
     return normalizeToken(sessionStorage.getItem(AUTH_TOKEN_KEY));
   });
+  const stateRef = useRef(state);
+  const authTokenRef = useRef(authToken);
+  const remoteHydratePromiseRef = useRef(null);
   const setAuthToken = useCallback((token) => {
     setAuthTokenState(normalizeToken(token));
   }, []);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    authTokenRef.current = authToken;
+  }, [authToken]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", state.theme || "light");
@@ -103,30 +114,42 @@ export default function App() {
     } catch {}
   }, [state]);
 
-  useEffect(() => {
-    if (!authToken || !state.currentUserId) return;
-    let cancelled = false;
-    async function hydrateRemote() {
+  const hydrateFromRemote = useCallback(async (tokenOverride) => {
+    const normalizedToken = normalizeToken(tokenOverride || authTokenRef.current);
+    if (!normalizedToken) return null;
+    if (remoteHydratePromiseRef.current) {
+      return remoteHydratePromiseRef.current;
+    }
+    const runner = (async () => {
       try {
-        const remote = await fetchRemoteState(authToken);
-        if (!remote || cancelled) return;
-        dispatch({
-          type: "HYDRATE_STATE",
-          db: remote.db || remote,
-          view: remote.view || state.view,
-          currentUserId: remote.currentUserId ?? state.currentUserId,
-          theme: remote.theme || state.theme,
-          leftHouseIds: Array.isArray(remote.leftHouseIds) ? remote.leftHouseIds : state.leftHouseIds
-        });
+        const remote = await fetchRemoteState(normalizedToken);
+        if (remote) {
+          const snapshot = stateRef.current;
+          dispatch({
+            type: "HYDRATE_STATE",
+            db: remote.db || remote,
+            view: remote.view || snapshot.view,
+            currentUserId: remote.currentUserId ?? snapshot.currentUserId,
+            theme: remote.theme || snapshot.theme,
+            leftHouseIds: Array.isArray(remote.leftHouseIds) ? remote.leftHouseIds : snapshot.leftHouseIds
+          });
+        }
+        return remote;
       } catch (err) {
         console.warn("Failed to load remote state", err);
+        return null;
+      } finally {
+        remoteHydratePromiseRef.current = null;
       }
-    }
-    hydrateRemote();
-    return () => {
-      cancelled = true;
-    };
-  }, [authToken, state.currentUserId]);
+    })();
+    remoteHydratePromiseRef.current = runner;
+    return runner;
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    hydrateFromRemote(authToken);
+  }, [authToken, hydrateFromRemote]);
 
   useEffect(() => {
     if (!authToken || !state.currentUserId) return;
@@ -135,8 +158,9 @@ export default function App() {
 
   const actions = useMemo(() => ({
     login: (email, profile) => {
+      const snapshot = stateRef.current;
       const normalized = String(email || "").toLowerCase().trim();
-      const exists = state?.db?.users?.some(u => u.email?.toLowerCase() === normalized) ?? false;
+      const exists = snapshot?.db?.users?.some(u => u.email?.toLowerCase() === normalized) ?? false;
       if (!exists) return false;
       dispatch({ type: "LOGIN", email, profile });
       return true;
@@ -146,6 +170,7 @@ export default function App() {
       setAuthToken(null);
       dispatch({ type: "LOGOUT" });
     },
+    hydrateFromRemote,
     createHouse: (payload) => dispatch({ type: "CREATE_HOUSE", payload }),
     joinHouse: (payload) => dispatch({ type: "JOIN_HOUSE", payload }),
 
@@ -177,7 +202,7 @@ export default function App() {
     dismissToast: () => dispatch({ type: "DISMISS_TOAST" }),
     updateNote: (noteId, patch) => dispatch({ type: "UPDATE_NOTE", noteId, patch }),
     syncRemoteHouses: (houses) => dispatch({ type: "SYNC_REMOTE_HOUSES", houses })
-  }), [dispatch, state]);
+  }), [dispatch, hydrateFromRemote, setAuthToken]);
 
   const activeHouseId = house?.id || "none";
   useEffect(() => {
@@ -201,6 +226,8 @@ export default function App() {
     let cancelled = false;
     async function hydrateFromToken() {
       try {
+        await hydrateFromRemote(authToken);
+        if (cancelled || stateRef.current?.currentUserId) return;
         const resp = await fetch("/api/wp-me", {
           headers: { Authorization: `Flatmate ${authToken}` }
         });
@@ -212,7 +239,8 @@ export default function App() {
         const name = meData.name || meData.display_name || meData.user_nicename || "Member";
         if (!email) return;
         const profile = { name, wpId: meData.id ?? meData.user_id ?? null };
-        const exists = state?.db?.users?.some(u => u.email?.toLowerCase() === email) ?? false;
+        const snapshot = stateRef.current;
+        const exists = snapshot?.db?.users?.some(u => u.email?.toLowerCase() === email) ?? false;
         if (exists) {
           dispatch({ type: "LOGIN", email, profile });
         } else {
@@ -226,7 +254,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authToken, state.db.users, state.currentUserId, dispatch]);
+  }, [authToken, state.currentUserId, dispatch, hydrateFromRemote]);
 
   const showTopBar = state.view !== "AUTH";
 

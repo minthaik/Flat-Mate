@@ -27,6 +27,9 @@ export default function AuthScreen({ actions, onAuthToken }) {
       if (onAuthToken) {
         onAuthToken(data.token);
       }
+      if (actions?.hydrateFromRemote) {
+        await actions.hydrateFromRemote(data.token);
+      }
       // fetch profile
       const meResp = await fetch("/api/wp-me", {
         headers: { Authorization: `Flatmate ${data.token}` }
@@ -66,6 +69,10 @@ export default function AuthScreen({ actions, onAuthToken }) {
       const token = data?.token;
       if (token && onAuthToken) {
         onAuthToken(token);
+      }
+
+      if (token && actions?.hydrateFromRemote) {
+        await actions.hydrateFromRemote(token);
       }
 
       let profile = null;
