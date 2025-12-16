@@ -1507,6 +1507,16 @@ select {
   overflow: hidden;
 }
 
+.community-post__media-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  display: block;
+  cursor: zoom-in;
+}
+
 .community-post__media img {
   width: 100%;
   max-height: 400px;
@@ -1542,6 +1552,57 @@ select {
 .community-post__pending-buttons {
   display: flex;
   gap: var(--space-2);
+}
+
+.community-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.community-lightbox__surface {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(640px, 100%);
+}
+
+.community-lightbox__close {
+  align-self: flex-end;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  padding: 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+.community-lightbox__image {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.community-lightbox__image img {
+  display: block;
+  max-height: 80vh;
+  width: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.community-lightbox__caption {
+  text-align: center;
+  color: #fff;
 }
 
 .community-post__pending-note {

@@ -98,7 +98,9 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const [threadLoading, setThreadLoading] = useState({});
   const [deletingPostId, setDeletingPostId] = useState(null);
   const [composerFocused, setComposerFocused] = useState(false);
+  const [lightboxMedia, setLightboxMedia] = useState(null);
   const composerTextareaRef = useRef(null);
+  const lightboxCloseRef = useRef(null);
   const [pendingActivePosts, setActivePendingPosts] = useState([]);
   const [queuedPostEntries, setQueuedPostEntries] = useState([]);
   const queueRef = useRef([]);
@@ -491,6 +493,21 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
   }, [imagePreview]);
+  useEffect(() => {
+    if (!lightboxMedia) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxMedia, closeLightbox]);
+  useEffect(() => {
+    if (lightboxMedia && lightboxCloseRef.current) {
+      lightboxCloseRef.current.focus();
+    }
+  }, [lightboxMedia]);
 
   const handleImageChange = useCallback(async (event) => {
     const input = event.target;
@@ -745,6 +762,22 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const focusComposer = useCallback(() => {
     composerTextareaRef.current?.focus();
   }, []);
+  const openLightbox = useCallback((post, src) => {
+    if (!src) return;
+    const trimmed = post?.text?.trim();
+    const fallbackAlt = post?.author?.name
+      ? `Shared by ${post.author.name}`
+      : "Community post image";
+    const captionParts = [];
+    if (post?.author?.name) captionParts.push(post.author.name);
+    if (post?.createdAt) captionParts.push(new Date(post.createdAt).toLocaleString());
+    setLightboxMedia({
+      src,
+      alt: trimmed || fallbackAlt,
+      caption: captionParts.join(" • ")
+    });
+  }, []);
+  const closeLightbox = useCallback(() => setLightboxMedia(null), []);
 
   const composerDisabled = !houseId || creatingPost;
   const composerReady = !composerDisabled && (composerText.trim() || composerImage);
@@ -893,8 +926,12 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
           </div>
         )}
 
-        {combinedPosts.map(post => (
-          <article key={post.id} className="panel community-post">
+        {combinedPosts.map(post => {
+          const mediaSrc = post.mediaUrl || post.mediaPreview;
+          const inlineAlt =
+            post.text?.trim() || `${post.author?.name || "Housemate"} shared a photo`;
+          return (
+            <article key={post.id} className="panel community-post">
             <header className="community-post__header">
               <div className="community-post__author">
                 <div className="community-avatar">
@@ -966,9 +1003,16 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
               </p>
             )}
 
-            {(post.mediaUrl || post.mediaPreview) && (
+            {mediaSrc && (
               <div className="community-post__media">
-                <img src={post.mediaUrl || post.mediaPreview} alt="" />
+                <button
+                  type="button"
+                  className="community-post__media-btn"
+                  onClick={() => openLightbox(post, mediaSrc)}
+                  aria-label="Expand image"
+                >
+                  <img src={mediaSrc} alt={inlineAlt} />
+                </button>
               </div>
             )}
 
@@ -1068,8 +1112,9 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
                   : "Sending..."}
               </div>
             )}
-          </article>
-        ))}
+            </article>
+          );
+        })}
 
         {hasMore && posts.length > 0 && (
           <div className="panel community-load-more">
@@ -1080,6 +1125,38 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
           </div>
         )}
       </section>
+      {lightboxMedia && (
+        <div
+          className="community-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Post image preview"
+          onClick={closeLightbox}
+        >
+          <div
+            className="community-lightbox__surface"
+            onClick={event => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="community-lightbox__close"
+              onClick={closeLightbox}
+              aria-label="Close image preview"
+              ref={lightboxCloseRef}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+            <div className="community-lightbox__image">
+              <img src={lightboxMedia.src} alt={lightboxMedia.alt || "Post media"} />
+            </div>
+            {lightboxMedia.caption && (
+              <div className="community-lightbox__caption small muted">
+                {lightboxMedia.caption}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
