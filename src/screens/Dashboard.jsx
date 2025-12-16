@@ -186,6 +186,14 @@ export default function Dashboard({
     setPendingStatus(myStatus || "HOME");
     setStatusModalOpen(true);
   };
+  const statusSummary = (() => {
+    const profileNote = me?.statusNote || "";
+    if (myStatus === "DND" && me?.dndUntil) {
+      return `DND until ${new Date(me.dndUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    }
+    if (profileNote) return profileNote;
+    return myStatus === "HOME" ? "Relaxing at home" : `Currently ${myStatus.toLowerCase()}`;
+  })();
 
   useEffect(() => {
     let ignore = false;
@@ -239,7 +247,7 @@ export default function Dashboard({
       {tab === "HOME" && (
         <div className="home-page">
 
-          <section className="home-hero">
+          <section className="home-hero home-hero--compact">
             <div className="home-hero__body">
               <div className="home-hero__avatar">
                 <img src={avatarPresetSrc} alt="" />
@@ -247,18 +255,20 @@ export default function Dashboard({
               <div className="home-hero__content">
                 <p className="home-hero__eyebrow">{house?.name || "Paxbud collective"}</p>
                 <h1 className="home-hero__title">Hi {heroFirstName}</h1>
-                <p className="home-hero__subtitle">
-                  Everything your house needs today lives right here.
-                </p>
-                <div className="home-hero__actions">
-                  <button className="btn small" onClick={openStatusDialog}>
-                    Update status
-                  </button>
-                  <button className="btn ghost small" onClick={() => setTab("COMMUNITY")}>
-                    Open feed
-                  </button>
+                <p className="home-hero__subtitle">You’re synced with your housemates.</p>
+              </div>
+            </div>
+            <div className="home-hero__status">
+              <div>
+                <span className="hero-status-label">Current status</span>
+                <div className={`hero-status-pill hero-status-pill--${(myStatus || "home").toLowerCase()}`}>
+                  <span className="hero-status-pill__value">{myStatus}</span>
+                  <span className="hero-status-pill__meta">{statusSummary}</span>
                 </div>
               </div>
+              <button className="btn small" onClick={openStatusDialog}>
+                Update status
+              </button>
             </div>
             <div className="home-hero__metrics">
               {heroMetrics.map(metric => (
@@ -270,16 +280,7 @@ export default function Dashboard({
             </div>
           </section>
 
-          <section className="home-section">
-            <header className="home-section__head">
-              <div>
-                <p className="home-eyebrow">Status</p>
-                <h2 className="home-section__title">House pulse</h2>
-              </div>
-              <button className="btn ghost small" onClick={openStatusDialog}>
-                Adjust
-              </button>
-            </header>
+          <div className="home-preview-grid">
 
             <OverviewCard
             title="My status"
@@ -333,20 +334,7 @@ export default function Dashboard({
               </div>
             </div>
             </OverviewCard>
-          </section>
 
-          <section className="home-section">
-            <header className="home-section__head">
-              <div>
-                <p className="home-eyebrow">Focus</p>
-                <h2 className="home-section__title">Live operations</h2>
-              </div>
-              <button className="btn ghost small" onClick={() => setTab("COMMUNITY")}>
-                View all
-              </button>
-            </header>
-
-            <div className="home-panels-grid">
               <OverviewCard
               title="Members"
               actionLabel="View status"
@@ -546,8 +534,7 @@ export default function Dashboard({
               </div>
             </OverviewCard>
           </div>
-        </section>
-      </div>
+        </div>
       )}
 
       {tab === "CHORES" && (
