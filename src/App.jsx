@@ -26,13 +26,23 @@ const normalizeToken = (value) => {
   }
   return trimmed;
 };
+const readStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  const read = (storage) => {
+    try {
+      return storage?.getItem(AUTH_TOKEN_KEY) || null;
+    } catch {
+      return null;
+    }
+  };
+  const sessionToken = normalizeToken(read(window.sessionStorage));
+  if (sessionToken) return sessionToken;
+  return normalizeToken(read(window.localStorage));
+};
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial);
-  const [authToken, setAuthTokenState] = useState(() => {
-    if (typeof window === "undefined") return null;
-    return normalizeToken(sessionStorage.getItem(AUTH_TOKEN_KEY));
-  });
+  const [authToken, setAuthTokenState] = useState(() => readStoredToken());
   const stateRef = useRef(state);
   const authTokenRef = useRef(authToken);
   const remoteHydratePromiseRef = useRef(null);
@@ -98,10 +108,16 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (authToken) {
-      sessionStorage.setItem(AUTH_TOKEN_KEY, authToken);
-    } else {
-      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    try {
+      if (authToken) {
+        sessionStorage.setItem(AUTH_TOKEN_KEY, authToken);
+        localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+      } else {
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
+    } catch {
+      // ignore storage write failures (private mode, etc.)
     }
   }, [authToken]);
 
