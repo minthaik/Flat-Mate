@@ -228,7 +228,7 @@ export default function Dashboard({
           <div className="section-title">Overview</div>
 
           <OverviewCard
-            title="My status"
+            title="Update your status"
             panelStyle={{ background: "linear-gradient(135deg, #e6f4ec 0%, #f2fbf6 100%)", border: "1px solid rgba(11,138,59,0.18)" }}
           >
             <div className="stack">
