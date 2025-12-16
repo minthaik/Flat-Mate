@@ -379,6 +379,16 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     [headers, houseId, normalizePost]
   );
 
+  const releasePreview = useCallback((entry) => {
+    if (entry?.mediaPreview && typeof window !== "undefined") {
+      try {
+        URL.revokeObjectURL(entry.mediaPreview);
+      } catch {
+        // ignore release errors
+      }
+    }
+  }, []);
+
   useEffect(() => {
     setPosts([]);
     setPage(1);
@@ -433,15 +443,6 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     setComposerImage(null);
     setImagePreview("");
   }, [imagePreview]);
-  const releasePreview = useCallback((entry) => {
-    if (entry?.mediaPreview && typeof window !== "undefined") {
-      try {
-        URL.revokeObjectURL(entry.mediaPreview);
-      } catch {
-        // ignore release errors
-      }
-    }
-  }, []);
 
   const handleCreatePost = useCallback(() => {
     if (!houseId || (!composerText.trim() && !composerImage)) return;
