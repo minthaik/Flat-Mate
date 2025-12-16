@@ -4,6 +4,7 @@ import { isHouseAdmin as domainIsHouseAdmin } from "../domain/houses";
 const PAGE_SIZE = 10;
 const COMMENTS_BATCH = 50;
 const DEFAULT_AVATAR = "/avatars/avatar-happy.svg";
+const POST_QUEUE_KEY = "community_post_queue_v1";
 
 const randomId = () => {
   if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
@@ -28,6 +29,10 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   const [deletingPostId, setDeletingPostId] = useState(null);
   const [composerFocused, setComposerFocused] = useState(false);
   const composerTextareaRef = useRef(null);
+  const [pendingActivePosts, setPendingActivePosts] = useState([]);
+  const [queuedPostEntries, setQueuedPostEntries] = useState([]);
+  const queueRef = useRef([]);
+  const flushingQueueRef = useRef(false);
   const houseId = house?.id;
   const isHouseAdmin = domainIsHouseAdmin(me, house);
 
@@ -47,6 +52,12 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     });
     return map;
   }, [houseUsers]);
+  const meAuthorId = me?.wpId ? String(me.wpId) : null;
+  const currentAuthor = useMemo(() => ({
+    name: me?.name || "You",
+    avatar: me?.photo || DEFAULT_AVATAR,
+    isAdmin: domainIsHouseAdmin(me, house)
+  }), [me?.name, me?.photo, house, me]);
 
   const hydrateAuthor = useCallback(
     (wpId, fallback = {}) => {
@@ -150,6 +161,187 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
   );
 
   const headers = useMemo(() => (authToken ? { Authorization: `Flatmate ${authToken}` } : {}), [authToken]);
+  const persistQueueForHouse = useCallback((items) => {
+    if (typeof window === "undefined" || !houseId) return;
+    try {
+      const raw = localStorage.getItem(POST_QUEUE_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      map[houseId] = items;
+      localStorage.setItem(POST_QUEUE_KEY, JSON.stringify(map));
+    } catch {
+      // ignore storage issues
+    }
+    queueRef.current = items;
+    setQueuedPostEntries(items);
+  }, [houseId]);
+  const loadQueueForHouse = useCallback(() => {
+    if (typeof window === "undefined" || !houseId) {
+      queueRef.current = [];
+      setQueuedPostEntries([]);
+      return [];
+    }
+    try {
+      const raw = localStorage.getItem(POST_QUEUE_KEY);
+      if (!raw) {
+        queueRef.current = [];
+        setQueuedPostEntries([]);
+        return [];
+      }
+      const map = JSON.parse(raw);
+      const list = Array.isArray(map[houseId]) ? map[houseId] : [];
+      queueRef.current = list;
+      setQueuedPostEntries(list);
+      return list;
+    } catch {
+      queueRef.current = [];
+      setQueuedPostEntries([]);
+      return [];
+    }
+  }, [houseId]);
+  const enqueueQueueEntry = useCallback((entry) => {
+    const next = [entry, ...queueRef.current];
+    persistQueueForHouse(next);
+  }, [persistQueueForHouse]);
+  const removeQueueEntry = useCallback((entryId) => {
+    const next = queueRef.current.filter(item => item.id !== entryId);
+    persistQueueForHouse(next);
+  }, [persistQueueForHouse]);
+  const updateQueueEntry = useCallback((entryId, patch) => {
+    const next = queueRef.current.map(item => (item.id === entryId ? { ...item, ...patch } : item));
+    persistQueueForHouse(next);
+  }, [persistQueueForHouse]);
+  const buildActivePendingDisplay = useCallback((entry) => ({
+    id: entry.id,
+    houseId,
+    text: entry.text,
+    mediaUrl: null,
+    mediaPreview: entry.mediaPreview || "",
+    authorId: meAuthorId,
+    author: currentAuthor,
+    createdAt: entry.createdAt,
+    commentCount: 0,
+    comments: [],
+    hasFullThread: true,
+    pending: true,
+    status: entry.status || "sending",
+    error: entry.error || "",
+    pendingMetadata: { type: "active", id: entry.id }
+  }), [currentAuthor, houseId, meAuthorId]);
+  const buildQueuedPendingDisplay = useCallback((entry) => ({
+    id: entry.id,
+    houseId,
+    text: entry.text,
+    mediaUrl: null,
+    mediaPreview: "",
+    authorId: meAuthorId,
+    author: currentAuthor,
+    createdAt: entry.createdAt,
+    commentCount: 0,
+    comments: [],
+    hasFullThread: true,
+    pending: true,
+    status: entry.status || "queued",
+    error: entry.error || "",
+    pendingMetadata: { type: "queue", id: entry.id }
+  }), [currentAuthor, houseId, meAuthorId]);
+  const pendingDisplayPosts = useMemo(() => {
+    const activeDisplays = pendingActivePosts.map(buildActivePendingDisplay);
+    const queuedDisplays = queuedPostEntries.map(buildQueuedPendingDisplay);
+    return [...activeDisplays, ...queuedDisplays];
+  }, [pendingActivePosts, queuedPostEntries, buildActivePendingDisplay, buildQueuedPendingDisplay]);
+  const combinedPosts = useMemo(() => [...pendingDisplayPosts, ...posts], [pendingDisplayPosts, posts]);
+  const submitPost = useCallback(async ({ text, imageFile }) => {
+    if (!houseId) throw new Error("House required");
+    const form = new FormData();
+    if (text) form.append("text", text);
+    if (imageFile) form.append("image", imageFile);
+    const resp = await fetch(`/api/wp-posts?houseId=${encodeURIComponent(houseId)}`, {
+      method: "POST",
+      headers,
+      body: form
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data?.error || "Failed to publish post");
+    }
+    return normalizePost(data);
+  }, [headers, houseId, normalizePost]);
+  const publishQueuedEntry = useCallback(async (entry) => {
+    const normalized = await submitPost({ text: entry.text, imageFile: null });
+    removeQueueEntry(entry.id);
+    setPosts(prev => [normalized, ...prev]);
+  }, [removeQueueEntry, submitPost]);
+  const flushQueue = useCallback(async () => {
+    if (!houseId || queueRef.current.length === 0 || flushingQueueRef.current) return;
+    flushingQueueRef.current = true;
+    for (const entry of queueRef.current) {
+      updateQueueEntry(entry.id, { status: "sending", error: "" });
+      try {
+        await publishQueuedEntry(entry);
+      } catch (err) {
+        updateQueueEntry(entry.id, { status: "error", error: err.message || "Failed to send" });
+        break;
+      }
+    }
+    flushingQueueRef.current = false;
+  }, [houseId, publishQueuedEntry, updateQueueEntry]);
+  const publishActiveEntry = useCallback(async (entry) => {
+    try {
+      const normalized = await submitPost({ text: entry.text, imageFile: entry.mediaFile || null });
+      setActivePendingPosts(prev => prev.filter(item => item.id !== entry.id));
+      releasePreview(entry);
+      setPosts(prev => [normalized, ...prev]);
+    } catch (err) {
+      const message = err.message || "Could not publish post";
+      if (!entry.mediaFile && entry.text) {
+        setActivePendingPosts(prev => prev.filter(item => item.id !== entry.id));
+        releasePreview(entry);
+        enqueueQueueEntry({
+          id: entry.id,
+          houseId,
+          text: entry.text,
+          createdAt: entry.createdAt,
+          status: "queued",
+          error: ""
+        });
+        setError("Spotty connection. We'll send queued posts when you're online.");
+        flushQueue();
+      } else {
+        setActivePendingPosts(prev =>
+          prev.map(item => (item.id === entry.id ? { ...item, status: "error", error: message } : item))
+        );
+        setError(message);
+      }
+    }
+  }, [enqueueQueueEntry, flushQueue, houseId, submitPost, releasePreview]);
+  const cancelPendingPost = useCallback((post) => {
+    const meta = post?.pendingMetadata;
+    if (!meta) return;
+    if (meta.type === "active") {
+      const entry = pendingActivePosts.find(item => item.id === meta.id);
+      if (entry) {
+        releasePreview(entry);
+      }
+      setActivePendingPosts(prev => prev.filter(item => item.id !== meta.id));
+    } else if (meta.type === "queue") {
+      removeQueueEntry(meta.id);
+    }
+  }, [pendingActivePosts, releasePreview, removeQueueEntry]);
+  const retryPendingPost = useCallback((post) => {
+    const meta = post?.pendingMetadata;
+    if (!meta) return;
+    if (meta.type === "active") {
+      const entry = pendingActivePosts.find(item => item.id === meta.id);
+      if (!entry) return;
+      setActivePendingPosts(prev =>
+        prev.map(item => (item.id === meta.id ? { ...item, status: "sending", error: "" } : item))
+      );
+      publishActiveEntry(entry);
+    } else if (meta.type === "queue") {
+      updateQueueEntry(meta.id, { status: "queued", error: "" });
+      flushQueue();
+    }
+  }, [pendingActivePosts, publishActiveEntry, updateQueueEntry, flushQueue]);
 
   const fetchPosts = useCallback(
     async (nextPage = 1, append = false) => {
@@ -194,7 +386,26 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     if (houseId) {
       fetchPosts(1, false);
     }
-  }, [houseId, fetchPosts]);
+    loadQueueForHouse();
+    setActivePendingPosts(prev => {
+      prev.forEach(entry => releasePreview(entry));
+      return [];
+    });
+  }, [houseId, fetchPosts, loadQueueForHouse, releasePreview]);
+
+  useEffect(() => {
+    if (!houseId) return;
+    flushQueue();
+  }, [houseId, queuedPostEntries.length, flushQueue]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    function handleOnline() {
+      flushQueue();
+    }
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [flushQueue]);
 
   useEffect(() => {
     return () => {
@@ -222,36 +433,34 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     setComposerImage(null);
     setImagePreview("");
   }, [imagePreview]);
-
-  const handleCreatePost = useCallback(async () => {
-    if (!houseId || (!composerText.trim() && !composerImage)) return;
-    setCreatingPost(true);
-    setError("");
-    try {
-      const form = new FormData();
-      if (composerText.trim()) form.append("text", composerText.trim());
-      if (composerImage) form.append("image", composerImage);
-      const resp = await fetch(`/api/wp-posts?houseId=${encodeURIComponent(houseId)}`, {
-        method: "POST",
-        headers,
-        body: form
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data?.error || "Failed to publish post");
+  const releasePreview = useCallback((entry) => {
+    if (entry?.mediaPreview && typeof window !== "undefined") {
+      try {
+        URL.revokeObjectURL(entry.mediaPreview);
+      } catch {
+        // ignore release errors
       }
-      const normalized = normalizePost(data);
-      if (normalized) {
-        setPosts(prev => [normalized, ...prev]);
-      }
-      setComposerText("");
-      clearComposerMedia();
-    } catch (err) {
-      setError(err.message || "Could not publish post");
-    } finally {
-      setCreatingPost(false);
     }
-  }, [composerImage, composerText, headers, houseId, normalizePost, clearComposerMedia]);
+  }, []);
+
+  const handleCreatePost = useCallback(() => {
+    if (!houseId || (!composerText.trim() && !composerImage)) return;
+    const entry = {
+      id: randomId(),
+      text: composerText.trim(),
+      createdAt: new Date().toISOString(),
+      mediaFile: composerImage || null,
+      mediaPreview: imagePreview || "",
+      status: "sending",
+      error: ""
+    };
+    setActivePendingPosts(prev => [entry, ...prev]);
+    setComposerText("");
+    setComposerImage(null);
+    setImagePreview("");
+    setCreatingPost(true);
+    publishActiveEntry(entry).finally(() => setCreatingPost(false));
+  }, [houseId, composerText, composerImage, imagePreview, publishActiveEntry]);
 
   const updatePostState = useCallback((postId, updater) => {
     setPosts(prev => prev.map(post => (post.id === postId ? updater(post) : post)));
@@ -259,6 +468,15 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
 
   const handleDeletePost = useCallback(async (postId) => {
     if (!postId) return;
+    const activeEntry = pendingActivePosts.find(entry => entry.id === postId);
+    if (activeEntry) {
+      setActivePendingPosts(prev => prev.filter(entry => entry.id !== postId));
+      return;
+    }
+    if (queueRef.current.some(entry => entry.id === postId)) {
+      removeQueueEntry(postId);
+      return;
+    }
     if (typeof window !== "undefined" && !window.confirm("Delete this post?")) return;
     setDeletingPostId(postId);
     setError("");
@@ -277,7 +495,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     } finally {
       setDeletingPostId(null);
     }
-  }, [headers]);
+  }, [headers, pendingActivePosts, removeQueueEntry]);
 
   const handleCommentChange = useCallback((postId, value) => {
     setCommentDrafts(prev => ({ ...prev, [postId]: value }));
@@ -453,7 +671,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
 
   const composerDisabled = !houseId || creatingPost;
   const composerReady = !composerDisabled && (composerText.trim() || composerImage);
-  const showEmptyState = !loading && posts.length === 0;
+  const showEmptyState = !loading && posts.length === 0 && pendingDisplayPosts.length === 0;
 
   return (
     <div className="community-screen stack">
@@ -598,7 +816,7 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
           </div>
         )}
 
-        {posts.map(post => (
+        {combinedPosts.map(post => (
           <article key={post.id} className="panel community-post">
             <header className="community-post__header">
               <div className="community-post__author">
@@ -618,15 +836,50 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
                   </span>
                 </div>
               </div>
-              {canManagePost(post) && (
-                <button
-                  className="btn ghost small"
-                  onClick={() => handleDeletePost(post.id)}
-                  disabled={deletingPostId === post.id}
-                >
-                  <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-                  <span>{deletingPostId === post.id ? "Removing..." : "Delete"}</span>
-                </button>
+              {post.pending ? (
+                <div className="community-post__pending-actions">
+                  <span
+                    className={[
+                      "community-post__status",
+                      post.status === "error" ? "community-post__status--error" : ""
+                    ].filter(Boolean).join(" ")}
+                  >
+                    {post.status === "queued"
+                      ? "Queued"
+                      : post.status === "error"
+                      ? "Retry needed"
+                      : "Sending..."}
+                  </span>
+                  <div className="community-post__pending-buttons">
+                    {post.status === "error" && (
+                      <button
+                        className="btn ghost small"
+                        onClick={() => retryPendingPost(post)}
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+                        <span>Retry</span>
+                      </button>
+                    )}
+                    <button
+                      className="btn ghost small"
+                      onClick={() => cancelPendingPost(post)}
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">close</span>
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                canManagePost(post) && (
+                  <button
+                    className="btn ghost small"
+                    onClick={() => handleDeletePost(post.id)}
+                    disabled={deletingPostId === post.id}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                    <span>{deletingPostId === post.id ? "Removing..." : "Delete"}</span>
+                  </button>
+                )
               )}
             </header>
 
@@ -636,19 +889,29 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
               </p>
             )}
 
-            {post.mediaUrl && (
+            {(post.mediaUrl || post.mediaPreview) && (
               <div className="community-post__media">
-                <img src={post.mediaUrl} alt="" />
+                <img src={post.mediaUrl || post.mediaPreview} alt="" />
               </div>
             )}
 
             <div className="community-post__meta">
-              <span className="small muted">
-                {post.commentCount === 0
-                  ? "No comments yet"
-                  : `${post.commentCount} comment${post.commentCount === 1 ? "" : "s"}`}
-              </span>
-              {post.commentCount > post.comments.length && (
+              {post.pending ? (
+                <span className="small muted">
+                  {post.status === "queued"
+                    ? "Queued. We'll send it when your connection returns."
+                    : post.status === "error"
+                    ? post.error || "Unable to send. Retry or cancel."
+                    : "Sending..."}
+                </span>
+              ) : (
+                <span className="small muted">
+                  {post.commentCount === 0
+                    ? "No comments yet"
+                    : `${post.commentCount} comment${post.commentCount === 1 ? "" : "s"}`}
+                </span>
+              )}
+              {!post.pending && post.commentCount > post.comments.length && (
                 <button
                   className="btn ghost small"
                   onClick={() => loadFullThread(post.id)}
@@ -660,64 +923,74 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
               )}
             </div>
 
-            <div className="community-comments">
-              {post.comments.map(comment => (
-                <div key={comment.id} className="community-comment">
-                  <div className="community-comment__top">
-                    <div className="community-avatar community-avatar--sm">
-                      <img
-                        src={comment.author?.avatar || DEFAULT_AVATAR}
-                        alt=""
-                      />
-                    </div>
-                    <div className="community-comment__meta">
-                      <div className="community-author-line">
-                        <div className="community-author-line__primary">
-                          <span className="community-author-name">{comment.author?.name || "Housemate"}</span>
-                          {comment.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
-                        </div>
-                        <span className="community-post__timestamp">
-                          {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
-                        </span>
+            {!post.pending ? (
+              <div className="community-comments">
+                {post.comments.map(comment => (
+                  <div key={comment.id} className="community-comment">
+                    <div className="community-comment__top">
+                      <div className="community-avatar community-avatar--sm">
+                        <img
+                          src={comment.author?.avatar || DEFAULT_AVATAR}
+                          alt=""
+                        />
                       </div>
+                      <div className="community-comment__meta">
+                        <div className="community-author-line">
+                          <div className="community-author-line__primary">
+                            <span className="community-author-name">{comment.author?.name || "Housemate"}</span>
+                            {comment.author?.isAdmin && <span className="chip chip-admin">Admin</span>}
+                          </div>
+                          <span className="community-post__timestamp">
+                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}
+                          </span>
+                        </div>
+                      </div>
+                      {canManageComment(comment) && (
+                        <button
+                          className="btn ghost small"
+                          onClick={() => handleDeleteComment(post.id, comment.id)}
+                          disabled={Boolean(threadLoading[`delete-${comment.id}`])}
+                        >
+                          <span className="material-symbols-outlined" aria-hidden="true">delete</span>
+                          <span>Remove</span>
+                        </button>
+                      )}
                     </div>
-                    {canManageComment(comment) && (
-                      <button
-                        className="btn ghost small"
-                        onClick={() => handleDeleteComment(post.id, comment.id)}
-                        disabled={Boolean(threadLoading[`delete-${comment.id}`])}
-                      >
-                        <span className="material-symbols-outlined" aria-hidden="true">delete</span>
-                        <span>Remove</span>
-                      </button>
-                    )}
+                    <div className="community-comment__body">
+                      {comment.text}
+                    </div>
                   </div>
-                  <div className="community-comment__body">
-                    {comment.text}
-                  </div>
-                </div>
-              ))}
+                ))}
 
-              <div className="community-comment-composer">
-                <div className="community-comment-input-wrap">
-                  <textarea
-                    className="community-comment-input"
-                    rows={2}
-                    placeholder="Add a comment..."
-                    value={commentDrafts[post.id] || ""}
-                    onChange={e => handleCommentChange(post.id, e.target.value)}
-                  />
-                  <button
-                    className="btn secondary small community-comment-submit"
-                    onClick={() => handleAddComment(post.id)}
-                    disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
-                  >
-                    <span className="material-symbols-outlined" aria-hidden="true">send</span>
-                    <span>{commentLoading[post.id] ? "Posting..." : "Comment"}</span>
-                  </button>
+                <div className="community-comment-composer">
+                  <div className="community-comment-input-wrap">
+                    <textarea
+                      className="community-comment-input"
+                      rows={2}
+                      placeholder="Add a comment..."
+                      value={commentDrafts[post.id] || ""}
+                      onChange={e => handleCommentChange(post.id, e.target.value)}
+                    />
+                    <button
+                      className="btn secondary small community-comment-submit"
+                      onClick={() => handleAddComment(post.id)}
+                      disabled={!commentDrafts[post.id]?.trim() || commentLoading[post.id]}
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true">send</span>
+                      <span>{commentLoading[post.id] ? "Posting..." : "Comment"}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="community-post__pending-note small muted">
+                {post.status === "queued"
+                  ? "Queued posts send automatically once you're online."
+                  : post.status === "error"
+                  ? post.error || "Unable to send. Retry or cancel this post."
+                  : "Sending..."}
+              </div>
+            )}
           </article>
         ))}
 
