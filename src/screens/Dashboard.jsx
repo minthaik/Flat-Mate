@@ -410,17 +410,42 @@ export default function Dashboard({
                   const displayName = authorProfile?.name || post.author?.name || "Housemate";
                   const rawText = typeof post.text === "string" ? post.text.trim() : "";
                   const previewText =
-                    rawText.length > 160 ? `${rawText.slice(0, 160).trim()}…` : rawText;
+                    rawText.length > 160 ? `${rawText.slice(0, 160).trim()}...` : rawText;
+                  const presetAvatar =
+                    authorProfile?.avatarPreset
+                      ? AVATAR_PRESETS.find(p => p.id === authorProfile.avatarPreset)
+                      : null;
+                  const avatarFromAuthor =
+                    post.author?.avatar_url ||
+                    (typeof post.author?.avatar === "string"
+                      ? post.author.avatar
+                      : post.author?.avatar?.url) ||
+                    (post.author?.avatar_urls &&
+                      (post.author.avatar_urls["96"] ||
+                        post.author.avatar_urls["64"] ||
+                        post.author.avatar_urls["48"] ||
+                        Object.values(post.author.avatar_urls)[0])) ||
+                    null;
+                  const avatarSrc =
+                    authorProfile?.photo ||
+                    presetAvatar?.src ||
+                    avatarFromAuthor ||
+                    "/avatars/avatar-happy.svg";
                   return (
                     <div key={post.id} className="community-home-card">
                       <div className="community-home-card__header">
-                        <div className="community-home-card__title">
-                          <span>{displayName}</span>
+                        <div className="community-home-card__author">
+                          <div className="community-home-card__avatar">
+                            <img src={avatarSrc} alt={`${displayName} avatar`} />
+                          </div>
+                          <div className="community-home-card__meta">
+                            <span className="community-home-card__title">{displayName}</span>
+                            <span className="community-home-card__time">
+                              {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
+                            </span>
+                          </div>
                           {isNew && <span className="community-chip-new">New</span>}
                         </div>
-                        <span className="community-home-card__time">
-                          {post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}
-                        </span>
                       </div>
                       {previewText && (
                         <p className="community-home-card__text">
