@@ -493,21 +493,6 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
   }, [imagePreview]);
-  useEffect(() => {
-    if (!lightboxMedia) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        closeLightbox();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lightboxMedia, closeLightbox]);
-  useEffect(() => {
-    if (lightboxMedia && lightboxCloseRef.current) {
-      lightboxCloseRef.current.focus();
-    }
-  }, [lightboxMedia]);
 
   const handleImageChange = useCallback(async (event) => {
     const input = event.target;
@@ -778,6 +763,21 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     });
   }, []);
   const closeLightbox = useCallback(() => setLightboxMedia(null), []);
+  useEffect(() => {
+    if (!lightboxMedia) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lightboxMedia, closeLightbox]);
+  useEffect(() => {
+    if (lightboxMedia && lightboxCloseRef.current) {
+      lightboxCloseRef.current.focus();
+    }
+  }, [lightboxMedia]);
 
   const composerDisabled = !houseId || creatingPost;
   const composerReady = !composerDisabled && (composerText.trim() || composerImage);
