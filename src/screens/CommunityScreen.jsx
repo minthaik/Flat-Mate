@@ -5,6 +5,8 @@ const PAGE_SIZE = 10;
 const COMMENTS_BATCH = 50;
 const DEFAULT_AVATAR = "/avatars/avatar-happy.svg";
 const POST_QUEUE_KEY = "community_post_queue_v1";
+const MAX_MEDIA_DIMENSION = 1600;
+const MEDIA_JPEG_QUALITY = 0.82;
 
 const randomId = () => {
   if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
@@ -12,6 +14,74 @@ const randomId = () => {
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+const loadImageElement = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.decoding = "async";
+    img.src = src;
+  });
+
+const canvasToBlob = (canvas, type, quality) =>
+  new Promise((resolve, reject) => {
+    if (typeof canvas.toBlob !== "function") {
+      reject(new Error("Canvas toBlob unsupported"));
+      return;
+    }
+    canvas.toBlob(
+      blob => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Failed to compress image"));
+        }
+      },
+      type,
+      quality
+    );
+  });
+
+async function resizeImageFile(file, maxDimension = MAX_MEDIA_DIMENSION, quality = MEDIA_JPEG_QUALITY) {
+  if (typeof window === "undefined" || !file?.type?.startsWith("image/")) return file;
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const image = await loadImageElement(dataUrl);
+    const { width, height } = image;
+    if (!width || !height) return file;
+    const scale = Math.min(maxDimension / width, maxDimension / height, 1);
+    if (!Number.isFinite(scale) || scale >= 1) {
+      return file;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const preferredMime = file.type === "image/png" ? "image/png" : "image/jpeg";
+    const blob = await canvasToBlob(
+      canvas,
+      preferredMime,
+      preferredMime === "image/png" ? undefined : quality
+    );
+    const optimizedName =
+      file.name?.replace(/\.(png|jpe?g|webp)$/i, preferredMime === "image/png" ? ".png" : ".jpg") ||
+      `upload.${preferredMime === "image/png" ? "png" : "jpg"}`;
+    return new File([blob], optimizedName, { type: blob.type, lastModified: Date.now() });
+  } catch {
+    return file;
+  }
+}
 
 export default function CommunityScreen({ me, house, houseUsers = [], onBack, authToken }) {
   const [posts, setPosts] = useState([]);
@@ -422,8 +492,9 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     };
   }, [imagePreview]);
 
-  const handleImageChange = useCallback((event) => {
-    const file = event.target?.files?.[0];
+  const handleImageChange = useCallback(async (event) => {
+    const input = event.target;
+    const file = input?.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Please choose an image file.");
@@ -432,8 +503,14 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
     }
-    const preview = URL.createObjectURL(file);
-    setComposerImage(file);
+    let optimized = file;
+    try {
+      optimized = await resizeImageFile(file);
+    } catch {
+      optimized = file;
+    }
+    const preview = URL.createObjectURL(optimized);
+    setComposerImage(optimized);
     setImagePreview(preview);
   }, [imagePreview]);
 
