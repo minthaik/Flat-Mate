@@ -110,6 +110,7 @@ export default function Dashboard({
     const preset = AVATAR_PRESETS.find(p => p.id === me?.avatarPreset) || AVATAR_PRESETS[0];
     return preset?.src || "/avatars/avatar-happy.svg";
   })();
+  const heroFirstName = me?.name ? me.name.split(" ")[0] : "Housemate";
 
   const upcomingGuests = useMemo(() => {
     const list = [...(houseGuests || [])];
@@ -173,6 +174,18 @@ export default function Dashboard({
     list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return list.slice(0, 3);
   }, [houseExpenses]);
+  const openChoresCount = (houseChores || []).filter(c => c?.state !== "ENDED").length;
+  const futureGuestsCount = upcomingGuests.length;
+  const heroMetrics = [
+    { label: "Roomies", value: houseUsers?.length || 0 },
+    { label: "Active chores", value: openChoresCount },
+    { label: "Guests soon", value: futureGuestsCount }
+  ];
+  const openStatusDialog = () => {
+    setStatusNote(me?.statusNote || "");
+    setPendingStatus(myStatus || "HOME");
+    setStatusModalOpen(true);
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -224,10 +237,51 @@ export default function Dashboard({
   return (
     <>
       {tab === "HOME" && (
-        <div className="stack" style={{ gap: 16 }}>
-          <div className="section-title">Overview</div>
+        <div className="home-page">
 
-          <OverviewCard
+          <section className="home-hero">
+            <div className="home-hero__body">
+              <div className="home-hero__avatar">
+                <img src={avatarPresetSrc} alt="" />
+              </div>
+              <div className="home-hero__content">
+                <p className="home-hero__eyebrow">{house?.name || "Paxbud collective"}</p>
+                <h1 className="home-hero__title">Hi {heroFirstName}</h1>
+                <p className="home-hero__subtitle">
+                  Everything your house needs today lives right here.
+                </p>
+                <div className="home-hero__actions">
+                  <button className="btn small" onClick={openStatusDialog}>
+                    Update status
+                  </button>
+                  <button className="btn ghost small" onClick={() => setTab("COMMUNITY")}>
+                    Open feed
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="home-hero__metrics">
+              {heroMetrics.map(metric => (
+                <div key={metric.label} className="hero-metric">
+                  <span className="hero-metric__label">{metric.label}</span>
+                  <span className="hero-metric__value">{metric.value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="home-section">
+            <header className="home-section__head">
+              <div>
+                <p className="home-eyebrow">Status</p>
+                <h2 className="home-section__title">House pulse</h2>
+              </div>
+              <button className="btn ghost small" onClick={openStatusDialog}>
+                Adjust
+              </button>
+            </header>
+
+            <OverviewCard
             title="My status"
             panelStyle={{ background: "linear-gradient(135deg, #e6f4ec 0%, #f2fbf6 100%)", border: "1px solid rgba(11,138,59,0.18)" }}
           >
@@ -278,13 +332,22 @@ export default function Dashboard({
                 <div className="small">Let roommates know if you are home, away, or not to be disturbed.</div>
               </div>
             </div>
-          </OverviewCard>
+            </OverviewCard>
+          </section>
 
-          <div
-            className="grid two"
-            style={{ gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
-          >
-            <OverviewCard
+          <section className="home-section">
+            <header className="home-section__head">
+              <div>
+                <p className="home-eyebrow">Focus</p>
+                <h2 className="home-section__title">Live operations</h2>
+              </div>
+              <button className="btn ghost small" onClick={() => setTab("COMMUNITY")}>
+                View all
+              </button>
+            </header>
+
+            <div className="home-panels-grid">
+              <OverviewCard
               title="Members"
               actionLabel="View status"
               onAction={() => setTab("ROOMMATES")}
