@@ -7,6 +7,7 @@ import Toast from "./components/Toast";
 import { reducer, loadInitial } from "./store/reducer";
 import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseExpenses } from "./store/selectors";
 import { uid, SESSION_STATE_KEY } from "./store/utils";
+import { fetchRemoteState, saveRemoteState } from "./utils/stateApi";
 
 const AUTH_TOKEN_KEY = "flatmate_auth_token";
 const normalizeToken = (value) => {
@@ -98,8 +99,39 @@ export default function App() {
     try {
       const payload = JSON.stringify({ ...state, toast: null });
       sessionStorage.setItem(SESSION_STATE_KEY, payload);
+      localStorage.setItem(SESSION_STATE_KEY, payload);
     } catch {}
   }, [state]);
+
+  useEffect(() => {
+    if (!authToken || !state.currentUserId) return;
+    let cancelled = false;
+    async function hydrateRemote() {
+      try {
+        const remote = await fetchRemoteState(authToken);
+        if (!remote || cancelled) return;
+        dispatch({
+          type: "HYDRATE_STATE",
+          db: remote.db || remote,
+          view: remote.view || state.view,
+          currentUserId: remote.currentUserId ?? state.currentUserId,
+          theme: remote.theme || state.theme,
+          leftHouseIds: Array.isArray(remote.leftHouseIds) ? remote.leftHouseIds : state.leftHouseIds
+        });
+      } catch (err) {
+        console.warn("Failed to load remote state", err);
+      }
+    }
+    hydrateRemote();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, state.currentUserId]);
+
+  useEffect(() => {
+    if (!authToken || !state.currentUserId) return;
+    saveRemoteState(authToken, state);
+  }, [authToken, state.currentUserId, state.db, state.view, state.theme, state.leftHouseIds]);
 
   const actions = useMemo(() => ({
     login: (email, profile) => {

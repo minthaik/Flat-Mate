@@ -78,23 +78,39 @@ function normalizeDb(db) {
   };
 }
 
-export function loadInitial() {
-  if (typeof window !== "undefined") {
+function readStoredState() {
+  if (typeof window === "undefined") return null;
+  const stores = [
+    () => {
+      try { return sessionStorage.getItem(SESSION_STATE_KEY); } catch { return null; }
+    },
+    () => {
+      try { return localStorage.getItem(SESSION_STATE_KEY); } catch { return null; }
+    }
+  ];
+  for (const getter of stores) {
+    const raw = getter();
+    if (!raw) continue;
     try {
-      const saved = sessionStorage.getItem(SESSION_STATE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.db && parsed?.view) {
-          return {
-            ...parsed,
-            db: normalizeDb(parsed.db),
-            toast: null,
-            leftHouseIds: Array.isArray(parsed.leftHouseIds) ? parsed.leftHouseIds : []
-          };
-        }
+      const parsed = JSON.parse(raw);
+      if (parsed?.db && parsed?.view) {
+        return {
+          ...parsed,
+          db: normalizeDb(parsed.db),
+          toast: null,
+          leftHouseIds: Array.isArray(parsed.leftHouseIds) ? parsed.leftHouseIds : []
+        };
       }
-    } catch {}
+    } catch {
+      continue;
+    }
   }
+  return null;
+}
+
+export function loadInitial() {
+  const stored = readStoredState();
+  if (stored) return stored;
   return { db: SEED_DB, currentUserId: null, view: "AUTH", toast: null, theme: "light", leftHouseIds: [] };
 }
 
@@ -175,6 +191,18 @@ export function reducer(state, action) {
 
     case "LOGOUT":
       return { ...state, currentUserId: null, view: "AUTH" };
+
+    case "HYDRATE_STATE": {
+      const nextDb = normalizeDb(action.db || state.db);
+      return {
+        ...state,
+        db: nextDb,
+        view: action.view || state.view,
+        currentUserId: action.currentUserId ?? state.currentUserId,
+        leftHouseIds: Array.isArray(action.leftHouseIds) ? action.leftHouseIds : state.leftHouseIds,
+        theme: action.theme || state.theme
+      };
+    }
 
     case "CREATE_HOUSE": {
       const payload = action.payload || {};
