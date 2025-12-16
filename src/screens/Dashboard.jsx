@@ -546,7 +546,8 @@ export default function Dashboard({
               </div>
             </OverviewCard>
           </div>
-        </div>
+        </section>
+      </div>
       )}
 
       {tab === "CHORES" && (
