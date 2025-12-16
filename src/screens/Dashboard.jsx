@@ -110,7 +110,6 @@ export default function Dashboard({
     const preset = AVATAR_PRESETS.find(p => p.id === me?.avatarPreset) || AVATAR_PRESETS[0];
     return preset?.src || "/avatars/avatar-happy.svg";
   })();
-  const heroFirstName = me?.name ? me.name.split(" ")[0] : "Housemate";
 
   const upcomingGuests = useMemo(() => {
     const list = [...(houseGuests || [])];
@@ -174,26 +173,6 @@ export default function Dashboard({
     list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     return list.slice(0, 3);
   }, [houseExpenses]);
-  const openChoresCount = (houseChores || []).filter(c => c?.state !== "ENDED").length;
-  const futureGuestsCount = upcomingGuests.length;
-  const heroMetrics = [
-    { label: "Roomies", value: houseUsers?.length || 0 },
-    { label: "Active chores", value: openChoresCount },
-    { label: "Guests soon", value: futureGuestsCount }
-  ];
-  const openStatusDialog = () => {
-    setStatusNote(me?.statusNote || "");
-    setPendingStatus(myStatus || "HOME");
-    setStatusModalOpen(true);
-  };
-  const statusSummary = (() => {
-    const profileNote = me?.statusNote || "";
-    if (myStatus === "DND" && me?.dndUntil) {
-      return `DND until ${new Date(me.dndUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    }
-    if (profileNote) return profileNote;
-    return myStatus === "HOME" ? "Relaxing at home" : `Currently ${myStatus.toLowerCase()}`;
-  })();
 
   useEffect(() => {
     let ignore = false;
@@ -245,44 +224,10 @@ export default function Dashboard({
   return (
     <>
       {tab === "HOME" && (
-        <div className="home-page">
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="section-title">Overview</div>
 
-          <section className="home-hero home-hero--compact">
-            <div className="home-hero__body">
-              <div className="home-hero__avatar">
-                <img src={avatarPresetSrc} alt="" />
-              </div>
-              <div className="home-hero__content">
-                <p className="home-hero__eyebrow">{house?.name || "Paxbud collective"}</p>
-                <h1 className="home-hero__title">Hi {heroFirstName}</h1>
-                <p className="home-hero__subtitle">You’re synced with your housemates.</p>
-              </div>
-            </div>
-            <div className="home-hero__status">
-              <div>
-                <span className="hero-status-label">Current status</span>
-                <div className={`hero-status-pill hero-status-pill--${(myStatus || "home").toLowerCase()}`}>
-                  <span className="hero-status-pill__value">{myStatus}</span>
-                  <span className="hero-status-pill__meta">{statusSummary}</span>
-                </div>
-              </div>
-              <button className="btn small" onClick={openStatusDialog}>
-                Update status
-              </button>
-            </div>
-            <div className="home-hero__metrics">
-              {heroMetrics.map(metric => (
-                <div key={metric.label} className="hero-metric">
-                  <span className="hero-metric__label">{metric.label}</span>
-                  <span className="hero-metric__value">{metric.value}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="home-preview-grid">
-
-            <OverviewCard
+          <OverviewCard
             title="My status"
             panelStyle={{ background: "linear-gradient(135deg, #e6f4ec 0%, #f2fbf6 100%)", border: "1px solid rgba(11,138,59,0.18)" }}
           >
@@ -333,9 +278,13 @@ export default function Dashboard({
                 <div className="small">Let roommates know if you are home, away, or not to be disturbed.</div>
               </div>
             </div>
-            </OverviewCard>
+          </OverviewCard>
 
-              <OverviewCard
+          <div
+            className="grid two"
+            style={{ gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
+          >
+            <OverviewCard
               title="Members"
               actionLabel="View status"
               onAction={() => setTab("ROOMMATES")}
