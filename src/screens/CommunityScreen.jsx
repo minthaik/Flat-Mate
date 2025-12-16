@@ -285,6 +285,15 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     }
     flushingQueueRef.current = false;
   }, [houseId, publishQueuedEntry, updateQueueEntry]);
+  const releasePreview = useCallback((entry) => {
+    if (entry?.mediaPreview && typeof window !== "undefined") {
+      try {
+        URL.revokeObjectURL(entry.mediaPreview);
+      } catch {
+        // ignore release errors
+      }
+    }
+  }, []);
   const publishActiveEntry = useCallback(async (entry) => {
     try {
       const normalized = await submitPost({ text: entry.text, imageFile: entry.mediaFile || null });
@@ -378,16 +387,6 @@ export default function CommunityScreen({ me, house, houseUsers = [], onBack, au
     },
     [headers, houseId, normalizePost]
   );
-
-  const releasePreview = useCallback((entry) => {
-    if (entry?.mediaPreview && typeof window !== "undefined") {
-      try {
-        URL.revokeObjectURL(entry.mediaPreview);
-      } catch {
-        // ignore release errors
-      }
-    }
-  }, []);
 
   useEffect(() => {
     setPosts([]);
