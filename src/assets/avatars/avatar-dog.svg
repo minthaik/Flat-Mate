@@ -1,0 +1,13 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dog avatar">
+  <defs>
+    <linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fecdd3"/>
+      <stop offset="100%" stop-color="#fb7185"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="64" fill="url(#g4)"/>
+  <path d="M84 92c0-12 10-22 22-22h44c12 0 22 10 22 22v18c0 32-26 58-58 58s-58-26-58-58V92c0-12 10-22 22-22h4c12 0 22 10 22 22" fill="#fff1f2" stroke="#9f1239" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="112" cy="128" r="10" fill="#9f1239"/>
+  <circle cx="144" cy="128" r="10" fill="#9f1239"/>
+  <path d="M116 156c8 8 16 8 24 0" stroke="#9f1239" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>

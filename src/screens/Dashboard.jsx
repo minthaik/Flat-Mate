@@ -8,12 +8,20 @@ import RoommatesScreen from "./RoommatesScreen";
 import FinanceScreen from "./FinanceScreen";
 import CommunityScreen from "./CommunityScreen";
 import GuestsScreen from "./GuestsScreen";
+import avatarHappy from "../assets/avatars/avatar-happy.svg";
+import avatarCool from "../assets/avatars/avatar-cool.svg";
+import avatarCat from "../assets/avatars/avatar-cat.svg";
+import avatarDog from "../assets/avatars/avatar-dog.svg";
+import avatarAstro from "../assets/avatars/avatar-astro.svg";
+import avatarLeaf from "../assets/avatars/avatar-leaf.svg";
 
 const AVATAR_PRESETS = [
-  { id: "happy", src: "/avatars/avatar-happy.svg", accent: "#7ea0ff" },
-  { id: "cool", src: "/avatars/avatar-cool.svg", accent: "#31c48d" },
-  { id: "cat", src: "/avatars/avatar-cat.svg", accent: "#f5c44f" },
-  { id: "dog", src: "/avatars/avatar-dog.svg", accent: "#ff7b7b" }
+  { id: "happy", src: avatarHappy, accent: "#7ea0ff" },
+  { id: "cool", src: avatarCool, accent: "#31c48d" },
+  { id: "cat", src: avatarCat, accent: "#f5c44f" },
+  { id: "dog", src: avatarDog, accent: "#ff7b7b" },
+  { id: "astro", src: avatarAstro, accent: "#8b5cf6" },
+  { id: "leaf", src: avatarLeaf, accent: "#22c55e" }
 ];
 
 function OverviewCard({ title, actionLabel, onAction, children, panelStyle }) {

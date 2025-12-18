@@ -3,6 +3,7 @@ import AuthScreen from "./screens/AuthScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import Dashboard from "./screens/Dashboard";
 import Toast from "./components/Toast";
+import logoImg from "./assets/paxbud-logo.svg";
 
 import { reducer, loadInitial } from "./store/reducer";
 import { getCurrentUser, getHouse, getHouseUsers, getHouseChores, getHouseGuests, getTodoLists, getHouseExpenses } from "./store/selectors";
@@ -283,7 +284,7 @@ export default function App() {
           <div className="header-nav">
             <div className="topbar">
               <div className="brand-cluster">
-                <img src="/paxbud-logo.svg" alt="paxbud logo" className="logo-img" />
+                <img src={logoImg} alt="paxbud logo" className="logo-img" />
               </div>
               <div className="topbar-right">
                 {!isStandalone && (

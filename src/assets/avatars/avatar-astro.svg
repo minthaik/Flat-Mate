@@ -1,0 +1,12 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Astronaut avatar">
+  <defs>
+    <linearGradient id="g5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="64" fill="url(#g5)"/>
+  <circle cx="128" cy="120" r="60" fill="#e0f2fe" stroke="#312e81" stroke-width="8"/>
+  <rect x="72" y="108" width="112" height="24" rx="12" fill="#0f172a"/>
+  <path d="M92 188h72" stroke="#312e81" stroke-width="12" stroke-linecap="round"/>
+</svg>

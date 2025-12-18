@@ -1,0 +1,13 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cat avatar">
+  <defs>
+    <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="64" fill="url(#g3)"/>
+  <path d="M82 76l24 18 24-18 24 18 24-18v62c0 40-32 72-72 72s-72-32-72-72V76l24 18 24-18Z" fill="#fef3c7" stroke="#92400e" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="104" cy="132" r="10" fill="#92400e"/>
+  <circle cx="152" cy="132" r="10" fill="#92400e"/>
+  <path d="M112 164c10 10 22 10 32 0" stroke="#92400e" stroke-width="8" fill="none" stroke-linecap="round"/>
+</svg>
