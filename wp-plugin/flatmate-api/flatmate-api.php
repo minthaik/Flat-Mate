@@ -726,6 +726,20 @@ private function get_actor_override_user_id() {
             ],
         ]);
 
+        // Back-compat: allow PATCH/DELETE on /chores with id in body or query instead of URL segment.
+        register_rest_route($ns, '/chores', [
+            [
+                'methods'             => WP_REST_Server::EDITABLE,
+                'permission_callback' => [$this, 'check_auth'],
+                'callback'            => [$this, 'update_chore'],
+            ],
+            [
+                'methods'             => WP_REST_Server::DELETABLE,
+                'permission_callback' => [$this, 'check_auth'],
+                'callback'            => [$this, 'delete_chore'],
+            ],
+        ]);
+
         // Expenses
         register_rest_route($ns, '/expenses', [
             [
@@ -762,6 +776,25 @@ private function get_actor_override_user_id() {
             ],
             [
                 'methods'             => WP_REST_Server::CREATABLE,
+                'permission_callback' => [$this, 'check_auth'],
+                'callback'            => [$this, 'create_post'],
+            ],
+        ]);
+
+        // Back-compat: allow /posts?houseId= to list/create without the house path segment.
+        register_rest_route($ns, '/posts', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'permission_callback' => [$this, 'check_auth'],
+                'callback'            => [$this, 'list_posts'],
+            ],
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'permission_callback' => [$this, 'check_auth'],
+                'callback'            => [$this, 'create_post'],
+            ],
+            [
+                'methods'             => WP_REST_Server::EDITABLE,
                 'permission_callback' => [$this, 'check_auth'],
                 'callback'            => [$this, 'create_post'],
             ],
@@ -1156,7 +1189,7 @@ private function get_actor_override_user_id() {
     /* Posts */
     public function list_posts($req) {
         global $wpdb;
-        $house_id = intval($req['id']);
+        $house_id = intval($req['id'] ?? $req['houseId'] ?? $req['house_id']);
         if (!$house_id) return new WP_Error('flatmate_invalid', 'houseId required', ['status' => 400]);
         $uid = $this->require_membership($house_id);
         if (is_wp_error($uid)) return $uid;
@@ -1189,7 +1222,7 @@ private function get_actor_override_user_id() {
 
     public function create_post($req) {
         global $wpdb;
-        $house_id = intval($req['id'] ?? $req['house_id']);
+        $house_id = intval($req['id'] ?? $req['houseId'] ?? $req['house_id']);
         if (!$house_id) return new WP_Error('flatmate_invalid', 'houseId required', ['status' => 400]);
         $uid = $this->require_membership($house_id);
         if (is_wp_error($uid)) return $uid;
@@ -1453,7 +1486,7 @@ private function get_actor_override_user_id() {
 
     public function update_chore($req) {
         global $wpdb;
-        $id = intval($req['id']);
+        $id = intval($req['id'] ?? $req->get_param('id'));
         if (!$id) return new WP_Error('flatmate_invalid', 'id required', ['status' => 400]);
         $chore = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['chores']} WHERE id=%d", $id));
         if (!$chore) return new WP_Error('flatmate_not_found', 'Chore not found', ['status' => 404]);
@@ -1473,7 +1506,7 @@ private function get_actor_override_user_id() {
 
     public function delete_chore($req) {
         global $wpdb;
-        $id = intval($req['id']);
+        $id = intval($req['id'] ?? $req->get_param('id'));
         if (!$id) return new WP_Error('flatmate_invalid', 'id required', ['status' => 400]);
         $chore = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->tables['chores']} WHERE id=%d", $id));
         if (!$chore) return new WP_Error('flatmate_not_found', 'Chore not found', ['status' => 404]);
